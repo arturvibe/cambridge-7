@@ -47,36 +47,30 @@ jobs:
 
       # Step 1: Deploy the New Revision with No Traffic
       - name: Deploy new revision with no traffic
-        run: |
-          gcloud run deploy $SERVICE_NAME \
-            --image $REGION-docker.pkg.dev/$PROJECT_ID/$ARTIFACT_REGISTRY_REPO/$SERVICE_NAME:$GITHUB_SHA \
-            --platform managed \
-            --region $REGION \
-            --allow-unauthenticated \
-            --max-instances 1 \
-            --memory 512Mi \
-            --cpu 1 \
-            --port 8080 \
-            --timeout 60 \
-            --no-traffic \
-            --tag blue
-          echo "✅ New revision deployed with no traffic (tagged as 'blue')"
+        id: deploy
+        uses: google-github-actions/deploy-cloudrun@v2
+        with:
+          service: ${{ env.SERVICE_NAME }}
+          region: ${{ env.REGION }}
+          image: ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.ARTIFACT_REGISTRY_REPO }}/${{ env.SERVICE_NAME }}:${{ github.sha }}
+          no_traffic: true
+          tag: blue
+          flags: |
+            --allow-unauthenticated
+            --max-instances=1
+            --memory=512Mi
+            --cpu=1
+            --port=8080
+            --timeout=60
 
       - name: Get new revision URL
         id: get-revision-url
         run: |
-          REVISION_URL=$(gcloud run services describe $SERVICE_NAME \
-            --platform managed \
-            --region $REGION \
-            --format 'value(status.traffic[0].url)' | grep blue || \
-            gcloud run services describe $SERVICE_NAME \
-            --platform managed \
-            --region $REGION \
-            --format 'value(status.url)')
           # Get the URL for the blue tag
-          BLUE_URL="https://blue---${SERVICE_NAME}-$(echo $REGION | tr -d '-')-$(gcloud config get-value project | tr ':' '-').a.run.app"
+          BLUE_URL="https://blue---${SERVICE_NAME}-$(echo $REGION | tr -d '-')-${PROJECT_ID//:/-}.a.run.app"
           echo "revision_url=$BLUE_URL" >> $GITHUB_OUTPUT
           echo "New revision URL: $BLUE_URL"
+          echo "✅ New revision deployed with no traffic (tagged as 'blue')"
 
       # Step 2: Validate /health endpoint
       - name: Validate health endpoint on new revision
@@ -114,25 +108,14 @@ jobs:
       - name: Migrate 100% traffic to new revision
         run: |
           gcloud run services update-traffic $SERVICE_NAME \
-            --platform managed \
             --region $REGION \
             --to-latest
           echo "✅ Traffic migrated to new revision (100%)"
-
-      - name: Get Service URL
-        id: get-url
-        run: |
-          SERVICE_URL=$(gcloud run services describe $SERVICE_NAME \
-            --platform managed \
-            --region $REGION \
-            --format 'value(status.url)')
-          echo "url=$SERVICE_URL" >> $GITHUB_OUTPUT
-          echo "Service URL: $SERVICE_URL"
 
       - name: Display deployment info
         run: |
           echo "✅ Blue-green deployment successful!"
           echo "Service: $SERVICE_NAME"
           echo "Region: $REGION"
-          echo "URL: ${{ steps.get-url.outputs.url }}"
-          echo "Webhook endpoint: ${{ steps.get-url.outputs.url }}/api/v1/frameio/webhook"
+          echo "URL: ${{ steps.deploy.outputs.url }}"
+          echo "Webhook endpoint: ${{ steps.deploy.outputs.url }}/api/v1/frameio/webhook"
