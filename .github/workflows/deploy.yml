@@ -114,7 +114,7 @@ jobs:
         run: |
           gcloud run services update-traffic $SERVICE_NAME \
             --region $REGION \
-            --to-latest
+            --to-tags=$REVISION_TAG=100
           echo "✅ Traffic migrated to new revision (100%)"
 
       - name: Display deployment info
