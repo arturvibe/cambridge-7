@@ -94,11 +94,9 @@ async def frameio_webhook(request: Request):
             f"Client IP: {request.client.host if request.client else 'unknown'}"
         )
         logger.info("-" * 80)
-        logger.info("HEADERS:")
-        logger.info(json.dumps(headers, indent=2, default=str))
+        logger.info(f"HEADERS: {json.dumps(headers, default=str)}")
         logger.info("-" * 80)
-        logger.info("FULL PAYLOAD:")
-        logger.info(json.dumps(payload, indent=2, default=str))
+        logger.info(f"FULL PAYLOAD: {json.dumps(payload, default=str)}")
         logger.info("=" * 80)
 
         # Return success response
