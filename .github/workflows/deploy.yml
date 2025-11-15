@@ -67,8 +67,12 @@ jobs:
       - name: Get new revision URL
         id: get-revision-url
         run: |
-          # Get the URL for the tagged revision
-          REVISION_URL="https://${REVISION_TAG}---${SERVICE_NAME}-$(echo $REGION | tr -d '-')-${PROJECT_ID//:/-}.a.run.app"
+          # Get the URL for the tagged revision from GCP
+          REVISION_URL=$(gcloud run services describe $SERVICE_NAME \
+            --region=$REGION \
+            --platform=managed \
+            --format='value(status.traffic.where(tag='$REVISION_TAG').url.first())')
+
           echo "revision_url=$REVISION_URL" >> $GITHUB_OUTPUT
           echo "New revision URL: $REVISION_URL"
           echo "✅ New revision deployed with no traffic (tagged as '$REVISION_TAG')"
