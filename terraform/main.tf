@@ -92,9 +92,9 @@ resource "google_project_iam_member" "github_actions_run_admin" {
   depends_on = [google_service_account.github_actions]
 }
 
-resource "google_project_iam_member" "github_actions_artifact_registry_writer" {
+resource "google_project_iam_member" "github_actions_artifact_registry_admin" {
   project = var.project_id
-  role    = "roles/artifactregistry.writer"
+  role    = "roles/artifactregistry.repoAdmin"
   member  = "serviceAccount:${google_service_account.github_actions.email}"
 
   depends_on = [google_service_account.github_actions]
@@ -114,7 +114,7 @@ resource "google_service_account_key" "github_actions_key" {
 
   depends_on = [
     google_project_iam_member.github_actions_run_admin,
-    google_project_iam_member.github_actions_artifact_registry_writer,
+    google_project_iam_member.github_actions_artifact_registry_admin,
     google_project_iam_member.github_actions_service_account_user
   ]
 }
