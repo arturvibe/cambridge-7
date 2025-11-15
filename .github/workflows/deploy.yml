@@ -79,7 +79,7 @@ jobs:
           REVISION_URL=$(gcloud run services describe $SERVICE_NAME \
             --region=$REGION \
             --platform=managed \
-            --format='value(status.traffic.where(tag='$REVISION_TAG').url.first())')
+            --format="value(status.traffic.where(tag:$REVISION_TAG).url)")
 
           echo "revision_url=$REVISION_URL" >> $GITHUB_OUTPUT
           echo "New revision URL: $REVISION_URL"
