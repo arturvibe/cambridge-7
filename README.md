@@ -154,33 +154,6 @@ curl -X POST \
 
 Send a test webhook or trigger an event in Frame.io (e.g., upload a file) and check the logs to verify it's working.
 
-### Supported Frame.io Events
-
-Choose from these V4 webhook events:
-
-**Files:**
-- `file.created` - New file created
-- `file.ready` - File transcoding completed
-- `file.updated` - File metadata updated
-- `file.deleted` - File deleted
-- `file.upload.completed` - File upload finished
-- `file.versioned` - New file version created
-
-**Folders:**
-- `folder.created`, `folder.updated`, `folder.deleted`
-
-**Projects:**
-- `project.created`, `project.updated`, `project.deleted`
-
-**Comments:**
-- `comment.created`, `comment.updated`, `comment.deleted`
-- `comment.completed`, `comment.uncompleted`
-
-**Others:**
-- `metadata.value.updated`
-- `collection.created`, `collection.updated`, `collection.deleted`
-- `share.created`, `share.updated`, `share.deleted`, `share.viewed`
-
 ## Viewing Logs and Webhook Payloads
 
 ### Method 1: GCP Console (Web UI)
