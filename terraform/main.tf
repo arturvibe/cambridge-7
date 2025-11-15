@@ -44,12 +44,23 @@ resource "google_artifact_registry_repository" "docker_repo" {
   format        = "DOCKER"
   project       = var.project_id
 
-  # Cleanup policy: keep only 7 most recent versions (including deployed images)
+  # Cleanup policy: keep deployed images from last ~60 days (~7-10 deployments)
+  # Note: GCP doesn't support "keep N most recent with tag X", only time-based filtering
   cleanup_policies {
-    id     = "keep-recent-versions"
+    id     = "keep-recent-deployed"
+    action = "KEEP"
+    condition {
+      tag_state    = "TAGGED"
+      tag_prefixes = ["deployed-"]
+      newer_than   = "5184000s"  # 60 days
+    }
+  }
+
+  cleanup_policies {
+    id     = "keep-recent-builds"
     action = "KEEP"
     most_recent_versions {
-      keep_count = 7
+      keep_count = 3
     }
   }
 
