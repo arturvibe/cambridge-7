@@ -8,7 +8,6 @@ env:
   SERVICE_NAME: cambridge
   REGION: europe-west1
   ARTIFACT_REGISTRY_REPO: cambridge-repo
-  REVISION_TAG: ${{ github.sha }}
 
 jobs:
   deploy:
@@ -21,6 +20,13 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Set short SHA for revision tag
+        id: vars
+        run: |
+          SHORT_SHA=$(echo $GITHUB_SHA | cut -c1-8)
+          echo "short_sha=$SHORT_SHA" >> $GITHUB_OUTPUT
+          echo "Revision tag (short SHA): $SHORT_SHA"
 
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
@@ -55,7 +61,7 @@ jobs:
           region: ${{ env.REGION }}
           image: ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.ARTIFACT_REGISTRY_REPO }}/${{ env.SERVICE_NAME }}:${{ github.sha }}
           no_traffic: true
-          tag: ${{ env.REVISION_TAG }}
+          tag: ${{ steps.vars.outputs.short_sha }}
           flags: |
             --allow-unauthenticated
             --max-instances=1
@@ -68,6 +74,7 @@ jobs:
         id: get-revision-url
         run: |
           # Get the URL for the tagged revision from GCP
+          REVISION_TAG="${{ steps.vars.outputs.short_sha }}"
           REVISION_URL=$(gcloud run services describe $SERVICE_NAME \
             --region=$REGION \
             --platform=managed \
@@ -112,6 +119,7 @@ jobs:
       # Step 3: Migrate 100% of Traffic
       - name: Migrate 100% traffic to new revision
         run: |
+          REVISION_TAG="${{ steps.vars.outputs.short_sha }}"
           gcloud run services update-traffic $SERVICE_NAME \
             --region $REGION \
             --to-tags=$REVISION_TAG=100
