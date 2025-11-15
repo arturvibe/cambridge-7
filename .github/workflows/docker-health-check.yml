@@ -1,0 +1,84 @@
+name: Docker Health Check
+
+on:
+  pull_request:
+    branches:
+      - '**'  # Run on all PRs
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  docker-health-check:
+    name: Build and Test Docker Container
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: |
+          docker build -t cambridge-test:${{ github.sha }} .
+
+      - name: Run container in background
+        run: |
+          docker run -d \
+            --name cambridge-test \
+            -p 8080:8080 \
+            -e PORT=8080 \
+            cambridge-test:${{ github.sha }}
+
+      - name: Wait for container to be ready
+        run: |
+          echo "Waiting for container to start..."
+          # Wait up to 30 seconds for the container to be ready
+          for i in {1..30}; do
+            if curl -f http://localhost:8080/health 2>/dev/null; then
+              echo "Container is ready!"
+              exit 0
+            fi
+            echo "Attempt $i/30: Container not ready yet, waiting..."
+            sleep 1
+          done
+          echo "Container failed to become ready within 30 seconds"
+          exit 1
+
+      - name: Test health endpoint
+        run: |
+          # Test /health endpoint
+          response=$(curl -s http://localhost:8080/health)
+          echo "Health endpoint response: $response"
+
+          # Verify response contains expected status
+          if echo "$response" | grep -q '"status":"healthy"'; then
+            echo "✅ Health check passed"
+          else
+            echo "❌ Health check failed: unexpected response"
+            exit 1
+          fi
+
+      - name: Test root endpoint
+        run: |
+          # Test / endpoint
+          response=$(curl -s http://localhost:8080/)
+          echo "Root endpoint response: $response"
+
+          # Verify response contains expected fields
+          if echo "$response" | grep -q '"status":"healthy"' && \
+             echo "$response" | grep -q '"service":"cambridge"'; then
+            echo "✅ Root endpoint check passed"
+          else
+            echo "❌ Root endpoint check failed: unexpected response"
+            exit 1
+          fi
+
+      - name: Show container logs (on failure)
+        if: failure()
+        run: |
+          echo "=== Container Logs ==="
+          docker logs cambridge-test
+
+      - name: Cleanup
+        if: always()
+        run: |
+          docker stop cambridge-test || true
+          docker rm cambridge-test || true
