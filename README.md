@@ -35,31 +35,8 @@ Terraform automates all GCP infrastructure setup.
 
 1. **Install gcloud CLI:**
 
-   **macOS:**
    ```bash
-   # Using Homebrew
    brew install --cask google-cloud-sdk
-
-   # Or download from:
-   # https://cloud.google.com/sdk/docs/install#mac
-   ```
-
-   **Linux:**
-   ```bash
-   # Debian/Ubuntu
-   curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo gpg --dearmor -o /usr/share/keyrings/cloud.google.gpg
-   echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" | sudo tee -a /etc/apt/sources.list.d/google-cloud-sdk.list
-   sudo apt-get update && sudo apt-get install google-cloud-sdk
-
-   # Or use the installer:
-   # curl https://sdk.cloud.google.com | bash
-   # exec -l $SHELL
-   ```
-
-   **Windows:**
-   ```powershell
-   # Download and run the installer from:
-   # https://cloud.google.com/sdk/docs/install#windows
    ```
 
    Verify installation:
@@ -69,26 +46,10 @@ Terraform automates all GCP infrastructure setup.
 
 2. **Install Terraform:**
 
-   **macOS:**
    ```bash
    brew tap hashicorp/tap
    brew install hashicorp/tap/terraform
    ```
-
-   **Linux:**
-   ```bash
-   wget -O- https://apt.releases.hashicorp.com/gpg | sudo gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg
-   echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/hashicorp.list
-   sudo apt update && sudo apt install terraform
-   ```
-
-   **Windows:**
-   ```powershell
-   # Using Chocolatey
-   choco install terraform
-   ```
-
-   Or download from: https://www.terraform.io/downloads
 
    Verify installation:
    ```bash
