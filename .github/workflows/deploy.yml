@@ -125,6 +125,18 @@ jobs:
             --to-tags=$REVISION_TAG=100
           echo "✅ Traffic migrated to new revision (100%)"
 
+      - name: Tag deployed image in Artifact Registry
+        run: |
+          IMAGE_PATH="$REGION-docker.pkg.dev/$PROJECT_ID/$ARTIFACT_REGISTRY_REPO/$SERVICE_NAME"
+
+          # Add 'deployed' tag to the successfully deployed image
+          gcloud artifacts docker tags add \
+            "$IMAGE_PATH:$GITHUB_SHA" \
+            "$IMAGE_PATH:deployed"
+
+          echo "✅ Tagged image with 'deployed' tag in Artifact Registry"
+          echo "Image: $IMAGE_PATH:deployed"
+
       - name: Display deployment info
         run: |
           echo "✅ Blue-green deployment successful!"
