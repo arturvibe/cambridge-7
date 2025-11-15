@@ -258,6 +258,73 @@ gcloud logging sinks create cambridges-sink \
     --log-filter='resource.type="cloud_run_revision" AND resource.labels.service_name="cambridge"'
 ```
 
+## Development
+
+### Running Unit Tests
+
+The application includes a comprehensive test suite with 90% code coverage.
+
+**Install development dependencies:**
+```bash
+pip install -r requirements-dev.txt
+```
+
+**Run all tests:**
+```bash
+pytest
+```
+
+**Run tests with coverage report:**
+```bash
+pytest --cov=app --cov-report=term-missing
+```
+
+**Run tests with HTML coverage report:**
+```bash
+pytest --cov=app --cov-report=html
+# Open htmlcov/index.html in your browser
+```
+
+**Run specific tests:**
+```bash
+# Run tests for health endpoints
+pytest tests/test_main.py::TestHealthEndpoints
+
+# Run tests for webhook functionality
+pytest tests/test_main.py::TestFrameIOWebhook
+
+# Run tests matching a keyword
+pytest -k "webhook"
+```
+
+### Continuous Integration
+
+Tests run automatically via GitHub Actions on:
+- Every push to any branch
+- Every pull request
+- Manual workflow dispatch
+
+See `.github/workflows/test.yml` for CI configuration and `tests/README.md` for detailed testing documentation.
+
+### Local Development
+
+**Run the application locally:**
+```bash
+# Install dependencies
+pip install -r requirements.txt
+
+# Run the application
+python app/main.py
+```
+
+The server will start at `http://localhost:8080`.
+
+**Or use Docker:**
+```bash
+docker build -t cambridge .
+docker run -p 8080:8080 cambridge
+```
+
 ## Testing
 
 ### Test the health endpoint:
@@ -336,15 +403,23 @@ gcloud alpha monitoring policies create \
 .
 ├── .github/
 │   └── workflows/
-│       └── deploy.yml          # GitHub Actions CD workflow
+│       ├── deploy.yml          # GitHub Actions CD workflow
+│       └── test.yml            # GitHub Actions test workflow
+├── app/
+│   └── main.py                 # FastAPI application
+├── tests/
+│   ├── __init__.py             # Test package marker
+│   ├── test_main.py            # Unit tests for main application
+│   └── README.md               # Testing documentation
 ├── terraform/
 │   ├── main.tf                 # Terraform main configuration
 │   ├── variables.tf            # Terraform input variables
 │   ├── outputs.tf              # Terraform outputs
 │   ├── terraform.tfvars.example # Example Terraform variables
 │   └── README.md               # Terraform documentation
-├── main.py                      # FastAPI application
 ├── requirements.txt             # Python dependencies
+├── requirements-dev.txt         # Development and testing dependencies
+├── pytest.ini                   # Pytest configuration
 ├── Dockerfile                   # Multi-stage Docker build
 ├── .dockerignore               # Docker build exclusions
 ├── .gitignore                  # Git ignore rules
