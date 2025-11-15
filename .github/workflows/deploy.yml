@@ -26,7 +26,7 @@ jobs:
         run: |
           SHORT_SHA=$(echo $GITHUB_SHA | cut -c1-8)
           REVISION_TAG="rev-${SHORT_SHA}"
-          echo "short_sha=$REVISION_TAG" >> $GITHUB_OUTPUT
+          echo "revision_tag=$REVISION_TAG" >> $GITHUB_OUTPUT
           echo "Revision tag: $REVISION_TAG"
 
       - name: Authenticate to Google Cloud
@@ -62,7 +62,7 @@ jobs:
           region: ${{ env.REGION }}
           image: ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.ARTIFACT_REGISTRY_REPO }}/${{ env.SERVICE_NAME }}:${{ github.sha }}
           no_traffic: true
-          tag: ${{ steps.vars.outputs.short_sha }}
+          tag: ${{ steps.vars.outputs.revision_tag }}
           flags: |
             --allow-unauthenticated
             --max-instances=1
@@ -75,7 +75,7 @@ jobs:
         id: get-revision-url
         run: |
           # Get the URL for the tagged revision from GCP
-          REVISION_TAG="${{ steps.vars.outputs.short_sha }}"
+          REVISION_TAG="${{ steps.vars.outputs.revision_tag }}"
           REVISION_URL=$(gcloud run services describe $SERVICE_NAME \
             --region=$REGION \
             --platform=managed \
@@ -120,7 +120,7 @@ jobs:
       # Step 3: Migrate 100% of Traffic
       - name: Migrate 100% traffic to new revision
         run: |
-          REVISION_TAG="${{ steps.vars.outputs.short_sha }}"
+          REVISION_TAG="${{ steps.vars.outputs.revision_tag }}"
           gcloud run services update-traffic $SERVICE_NAME \
             --region $REGION \
             --to-tags=$REVISION_TAG=100
