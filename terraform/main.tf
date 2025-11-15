@@ -44,14 +44,13 @@ resource "google_artifact_registry_repository" "docker_repo" {
   format        = "DOCKER"
   project       = var.project_id
 
-  # Cleanup policy: keep last 10 deployed images and 7 most recent versions
+  # Cleanup policy: keep all deployed images and 7 most recent versions
   cleanup_policies {
-    id     = "keep-recent-deployed"
+    id     = "keep-deployed-images"
     action = "KEEP"
     condition {
       tag_state    = "TAGGED"
       tag_prefixes = ["deployed-"]
-      newer_than   = "2592000s"  # 30 days
     }
   }
 
