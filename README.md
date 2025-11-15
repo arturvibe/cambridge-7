@@ -33,16 +33,74 @@ Frame.io → Webhook → Cloud Run Service → Logs to stdout → Cloud Logging
 
 Terraform automates all GCP infrastructure setup.
 
-1. **Install Terraform:**
-   - Download from https://www.terraform.io/downloads
-   - Verify: `terraform --version`
+1. **Install gcloud CLI:**
 
-2. **Authenticate with GCP:**
+   **macOS:**
+   ```bash
+   # Using Homebrew
+   brew install --cask google-cloud-sdk
+
+   # Or download from:
+   # https://cloud.google.com/sdk/docs/install#mac
+   ```
+
+   **Linux:**
+   ```bash
+   # Debian/Ubuntu
+   curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo gpg --dearmor -o /usr/share/keyrings/cloud.google.gpg
+   echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" | sudo tee -a /etc/apt/sources.list.d/google-cloud-sdk.list
+   sudo apt-get update && sudo apt-get install google-cloud-sdk
+
+   # Or use the installer:
+   # curl https://sdk.cloud.google.com | bash
+   # exec -l $SHELL
+   ```
+
+   **Windows:**
+   ```powershell
+   # Download and run the installer from:
+   # https://cloud.google.com/sdk/docs/install#windows
+   ```
+
+   Verify installation:
+   ```bash
+   gcloud --version
+   ```
+
+2. **Install Terraform:**
+
+   **macOS:**
+   ```bash
+   brew tap hashicorp/tap
+   brew install hashicorp/tap/terraform
+   ```
+
+   **Linux:**
+   ```bash
+   wget -O- https://apt.releases.hashicorp.com/gpg | sudo gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg
+   echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/hashicorp.list
+   sudo apt update && sudo apt install terraform
+   ```
+
+   **Windows:**
+   ```powershell
+   # Using Chocolatey
+   choco install terraform
+   ```
+
+   Or download from: https://www.terraform.io/downloads
+
+   Verify installation:
+   ```bash
+   terraform --version
+   ```
+
+3. **Authenticate with GCP:**
    ```bash
    gcloud auth application-default login
    ```
 
-3. **Configure Terraform:**
+4. **Configure Terraform:**
    ```bash
    cd terraform
    cp terraform.tfvars.example terraform.tfvars
@@ -54,14 +112,14 @@ Terraform automates all GCP infrastructure setup.
    region     = "europe-west1"
    ```
 
-4. **Run Terraform:**
+5. **Run Terraform:**
    ```bash
    terraform init
    terraform plan
    terraform apply
    ```
 
-5. **Get service account key:**
+6. **Get service account key:**
    ```bash
    terraform output -raw github_actions_service_account_key | base64 -d > key.json
    ```
@@ -426,7 +484,6 @@ gcloud alpha monitoring policies create \
 ├── .dockerignore               # Docker build exclusions
 ├── .gitignore                  # Git ignore rules
 ├── .commitlintrc.json          # Commitlint configuration
-├── CONTRIBUTING.md             # Contribution guidelines
 └── README.md                    # This file
 ```
 
@@ -463,16 +520,6 @@ gcloud alpha monitoring policies create \
 - 512Mi memory and 1 CPU should handle most webhook workloads
 - **Max instances set to 1** to minimize costs (webhooks are processed sequentially)
 - Service scales to zero when not receiving webhooks (no idle costs)
-
-## Contributing
-
-This project follows [Conventional Commits](https://www.conventionalcommits.org/) for commit messages. All commits are validated via CI using commitlint.
-
-Please see [CONTRIBUTING.md](CONTRIBUTING.md) for:
-- Commit message format and examples
-- Pull request process
-- Code quality guidelines
-- Testing requirements
 
 ## License
 
