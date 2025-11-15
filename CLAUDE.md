@@ -2,7 +2,7 @@
 
 FastAPI webhook receiver for Frame.io V4 → logs payloads to GCP Cloud Run → viewable via Cloud Logging.
 
-**Stack:** Python 3.11 • FastAPI 0.109.0 • Docker • GCP Cloud Run • Terraform
+**Stack:** Python 3.11 • FastAPI 0.109.0 • google-cloud-logging • Docker • GCP Cloud Run • Terraform
 
 **Flow:** `Frame.io → /api/v1/frameio/webhook → stdout → Cloud Logging`
 
@@ -54,7 +54,7 @@ Examples:
 - **Format:** black (88 char line length)
 - **Lint:** flake8, mypy
 - **FastAPI:** async/await, JSONResponse, type hints, docstrings
-- **Logging:** INFO level, structured (see app/main.py:82-101)
+- **Logging:** google-cloud-logging, structured JSON with trace correlation (see app/main.py:82-101)
 - **Tests:** 90%+ coverage, Test* classes, descriptive names, fixtures
 
 ## Architecture

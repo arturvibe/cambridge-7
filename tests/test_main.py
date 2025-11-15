@@ -81,12 +81,12 @@ class TestFrameIOWebhook:
 
         assert response.status_code == 200
 
-        # Check that important information was logged
+        # Check that important information was logged as structured JSON
         log_text = caplog.text
         assert "FRAME.IO WEBHOOK RECEIVED" in log_text
-        assert "Event Type: resource.asset_created" in log_text
-        assert "Resource Type: asset" in log_text
-        assert "Resource ID: abc-123-def-456" in log_text
+        assert '"event_type": "resource.asset_created"' in log_text
+        assert '"resource_type": "asset"' in log_text
+        assert '"resource_id": "abc-123-def-456"' in log_text
 
     def test_webhook_handles_minimal_payload(self):
         """Test webhook handles minimal payload with missing optional fields."""
