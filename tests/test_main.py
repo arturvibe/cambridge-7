@@ -2,7 +2,6 @@
 Unit tests for the Cambridge FastAPI webhook application.
 """
 
-import json
 from datetime import datetime
 from unittest.mock import patch
 
@@ -50,20 +49,12 @@ class TestFrameIOWebhook:
             "resource": {
                 "type": "asset",
                 "id": "abc-123-def-456",
-                "name": "sample_video.mp4"
+                "name": "sample_video.mp4",
             },
-            "account": {
-                "id": "account-123"
-            },
-            "workspace": {
-                "id": "workspace-456"
-            },
-            "project": {
-                "id": "project-789"
-            },
-            "user": {
-                "id": "user-xyz"
-            }
+            "account": {"id": "account-123"},
+            "workspace": {"id": "workspace-456"},
+            "project": {"id": "project-789"},
+            "user": {"id": "user-xyz"},
         }
 
     def test_webhook_accepts_valid_payload(self, sample_frameio_payload):
@@ -71,7 +62,7 @@ class TestFrameIOWebhook:
         response = client.post(
             "/api/v1/frameio/webhook",
             json=sample_frameio_payload,
-            headers={"Content-Type": "application/json"}
+            headers={"Content-Type": "application/json"},
         )
 
         assert response.status_code == 200
@@ -85,7 +76,7 @@ class TestFrameIOWebhook:
             response = client.post(
                 "/api/v1/frameio/webhook",
                 json=sample_frameio_payload,
-                headers={"Content-Type": "application/json"}
+                headers={"Content-Type": "application/json"},
             )
 
         assert response.status_code == 200
@@ -99,15 +90,12 @@ class TestFrameIOWebhook:
 
     def test_webhook_handles_minimal_payload(self):
         """Test webhook handles minimal payload with missing optional fields."""
-        minimal_payload = {
-            "type": "unknown_event",
-            "resource": {}
-        }
+        minimal_payload = {"type": "unknown_event", "resource": {}}
 
         response = client.post(
             "/api/v1/frameio/webhook",
             json=minimal_payload,
-            headers={"Content-Type": "application/json"}
+            headers={"Content-Type": "application/json"},
         )
 
         assert response.status_code == 200
@@ -121,7 +109,7 @@ class TestFrameIOWebhook:
             response = client.post(
                 "/api/v1/frameio/webhook",
                 content=b"invalid json{{{",
-                headers={"Content-Type": "application/json"}
+                headers={"Content-Type": "application/json"},
             )
 
         # App handles invalid JSON gracefully and still returns 200
@@ -139,7 +127,7 @@ class TestFrameIOWebhook:
             response = client.post(
                 "/api/v1/frameio/webhook",
                 json=sample_frameio_payload,
-                headers={"Content-Type": "application/json"}
+                headers={"Content-Type": "application/json"},
             )
 
             assert response.status_code == 200
@@ -158,7 +146,7 @@ class TestFrameIOWebhook:
         response = client.post(
             "/api/v1/frameio/webhook",
             json=sample_frameio_payload,
-            headers={"Content-Type": "application/json"}
+            headers={"Content-Type": "application/json"},
         )
 
         assert response.status_code == 200
@@ -199,16 +187,14 @@ class TestEndpointSecurity:
             "resource": {
                 "type": "asset",
                 "id": "large-asset",
-                "metadata": {
-                    "large_field": "x" * 10000  # 10KB of data
-                }
-            }
+                "metadata": {"large_field": "x" * 10000},  # 10KB of data
+            },
         }
 
         response = client.post(
             "/api/v1/frameio/webhook",
             json=large_payload,
-            headers={"Content-Type": "application/json"}
+            headers={"Content-Type": "application/json"},
         )
 
         assert response.status_code == 200
@@ -218,7 +204,7 @@ class TestEndpointSecurity:
         response = client.post(
             "/api/v1/frameio/webhook",
             json={},
-            headers={"Content-Type": "application/json"}
+            headers={"Content-Type": "application/json"},
         )
 
         assert response.status_code == 200

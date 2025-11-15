@@ -13,15 +13,14 @@ from fastapi.responses import JSONResponse
 
 # Configure logging
 logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
 
 app = FastAPI(
     title="Frame.io Webhook Receiver",
     description="Receives and logs Frame.io V4 webhooks",
-    version="1.0.0"
+    version="1.0.0",
 )
 
 
@@ -31,7 +30,7 @@ async def root():
     return {
         "status": "healthy",
         "service": "cambridge",
-        "timestamp": datetime.now(UTC).isoformat()
+        "timestamp": datetime.now(UTC).isoformat(),
     }
 
 
@@ -63,10 +62,10 @@ async def frameio_webhook(request: Request):
 
         # Parse JSON payload
         try:
-            payload = json.loads(body.decode('utf-8'))
+            payload = json.loads(body.decode("utf-8"))
         except Exception as e:
             logger.error(f"Failed to parse JSON payload: {str(e)}")
-            payload = {"raw_body": body.decode('utf-8') if body else None}
+            payload = {"raw_body": body.decode("utf-8") if body else None}
 
         # Extract Frame.io V4 webhook structure
         event_type = payload.get("type", "unknown")
@@ -91,7 +90,9 @@ async def frameio_webhook(request: Request):
         logger.info(f"User ID: {user_id}")
         logger.info(f"User Agent: {user_agent}")
         logger.info(f"Timestamp: {datetime.now(UTC).isoformat()}")
-        logger.info(f"Client IP: {request.client.host if request.client else 'unknown'}")
+        logger.info(
+            f"Client IP: {request.client.host if request.client else 'unknown'}"
+        )
         logger.info("-" * 80)
         logger.info("HEADERS:")
         logger.info(json.dumps(headers, indent=2, default=str))
@@ -107,15 +108,15 @@ async def frameio_webhook(request: Request):
                 "status": "received",
                 "event_type": event_type,
                 "resource_type": resource_type,
-                "timestamp": datetime.now(UTC).isoformat()
-            }
+                "timestamp": datetime.now(UTC).isoformat(),
+            },
         )
 
     except Exception as e:
         logger.error(f"Error processing webhook: {str(e)}", exc_info=True)
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            content={"status": "error", "message": str(e)}
+            content={"status": "error", "message": str(e)},
         )
 
 
