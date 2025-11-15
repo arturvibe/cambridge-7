@@ -21,6 +21,7 @@ FastAPI webhook receiver for Frame.io V4 → logs payloads to GCP Cloud Run → 
 ```bash
 # Setup
 pip install -r requirements-dev.txt
+pre-commit install  # Install git hooks for auto-formatting
 
 # Run locally
 python app/main.py  # http://localhost:8080
@@ -32,9 +33,12 @@ pytest --cov=app --cov-report=term-missing  # Must maintain 90%+ coverage
 docker build -t cambridge . && docker run -p 8080:8080 cambridge
 ```
 
+**Pre-commit hooks:** Auto-format Python (black) and Terraform files before commit
+
 **CI/CD:**
 - commitlint (PRs only) → validates all commits in PR
 - test (PRs only) → runs pytest with coverage
+- terraform-validate (PRs only) → validates terraform configuration
 - deploy (manual) → workflow_dispatch with blue-green deployment to Cloud Run
   - Step 1: Deploy new revision with `--no-traffic` (tagged with commit SHA)
   - Step 2: Validate `/health` endpoint (5 retries, 3s intervals)
