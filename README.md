@@ -77,7 +77,7 @@ See [terraform/README.md](terraform/README.md) for detailed Terraform documentat
 2. **Configure the workflow (if needed):**
    - Edit `.github/workflows/deploy.yml` if you want to change:
      - Region (default: `europe-west1`)
-     - Service name (default: `frameio-webhook`)
+     - Service name (default: `cambridge`)
      - Memory/CPU allocations
 
 ### 3. Deploy via GitHub Actions
@@ -94,7 +94,7 @@ See [terraform/README.md](terraform/README.md) for detailed Terraform documentat
 ### Step 1: Get your Cloud Run service URL
 
 ```bash
-gcloud run services describe frameio-webhook \
+gcloud run services describe cambridge \
     --platform managed \
     --region europe-west1 \
     --format 'value(status.url)'
@@ -165,7 +165,7 @@ Choose from these V4 webhook events:
 ### Method 1: GCP Console (Web UI)
 
 1. Go to [GCP Console](https://console.cloud.google.com/)
-2. Navigate to **Cloud Run** → Select `frameio-webhook` service
+2. Navigate to **Cloud Run** → Select `cambridge` service
 3. Click on **LOGS** tab
 4. You'll see webhook payloads logged in this format:
    ```
@@ -209,26 +209,26 @@ Choose from these V4 webhook events:
 
 **View recent logs:**
 ```bash
-gcloud logging read "resource.type=cloud_run_revision AND resource.labels.service_name=frameio-webhook" \
+gcloud logging read "resource.type=cloud_run_revision AND resource.labels.service_name=cambridge" \
     --limit 50 \
     --format=json
 ```
 
 **Stream logs in real-time:**
 ```bash
-gcloud logging tail "resource.type=cloud_run_revision AND resource.labels.service_name=frameio-webhook"
+gcloud logging tail "resource.type=cloud_run_revision AND resource.labels.service_name=cambridge"
 ```
 
 **Filter for webhook-specific logs:**
 ```bash
-gcloud logging read "resource.type=cloud_run_revision AND resource.labels.service_name=frameio-webhook AND textPayload=~'FRAME.IO WEBHOOK RECEIVED'" \
+gcloud logging read "resource.type=cloud_run_revision AND resource.labels.service_name=cambridge AND textPayload=~'FRAME.IO WEBHOOK RECEIVED'" \
     --limit 10 \
     --format=json
 ```
 
 **View logs from the last hour:**
 ```bash
-gcloud logging read "resource.type=cloud_run_revision AND resource.labels.service_name=frameio-webhook" \
+gcloud logging read "resource.type=cloud_run_revision AND resource.labels.service_name=cambridge" \
     --freshness=1h
 ```
 
@@ -238,7 +238,7 @@ gcloud logging read "resource.type=cloud_run_revision AND resource.labels.servic
 2. Use the query builder with this query:
    ```
    resource.type="cloud_run_revision"
-   resource.labels.service_name="frameio-webhook"
+   resource.labels.service_name="cambridge"
    textPayload=~"WEBHOOK"
    ```
 3. Adjust time range as needed
@@ -253,9 +253,9 @@ Set up log sinks to export webhook data to:
 
 Example: Export to BigQuery
 ```bash
-gcloud logging sinks create frameio-webhooks-sink \
+gcloud logging sinks create cambridges-sink \
     bigquery.googleapis.com/projects/your-project-id/datasets/webhook_logs \
-    --log-filter='resource.type="cloud_run_revision" AND resource.labels.service_name="frameio-webhook"'
+    --log-filter='resource.type="cloud_run_revision" AND resource.labels.service_name="cambridge"'
 ```
 
 ## Testing
@@ -268,8 +268,8 @@ curl https://your-service-url.run.app/health
 ### Test the webhook endpoint locally:
 ```bash
 # Run locally
-docker build -t frameio-webhook .
-docker run -p 8080:8080 frameio-webhook
+docker build -t cambridge .
+docker run -p 8080:8080 cambridge
 
 # Send test webhook with Frame.io V4 payload structure
 curl -X POST http://localhost:8080/api/v1/frameio/webhook \
@@ -310,13 +310,13 @@ curl -X POST https://your-service-url.run.app/api/v1/frameio/webhook \
 
 ### View Service Status:
 ```bash
-gcloud run services describe frameio-webhook \
+gcloud run services describe cambridge \
     --platform managed \
     --region europe-west1
 ```
 
 ### Check Metrics:
-- Go to Cloud Run → frameio-webhook → METRICS
+- Go to Cloud Run → cambridge → METRICS
 - View request count, latency, error rate, etc.
 
 ### Set up Alerts:

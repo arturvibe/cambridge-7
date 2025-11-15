@@ -5,9 +5,9 @@ on:
 
 env:
   PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
-  SERVICE_NAME: frameio-webhook
+  SERVICE_NAME: cambridge
   REGION: europe-west1
-  ARTIFACT_REGISTRY_REPO: frameio-webhook-repo
+  ARTIFACT_REGISTRY_REPO: cambridge-repo
 
 jobs:
   deploy:

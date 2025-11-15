@@ -6,5 +6,5 @@ region     = "europe-west1"
 
 # Optional: Override defaults
 # github_actions_sa_name      = "github-actions"
-# service_name                = "frameio-webhook"
-# artifact_registry_repo_name = "frameio-webhook-repo"
+# service_name                = "cambridge"
+# artifact_registry_repo_name = "cambridge-repo"

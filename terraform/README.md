@@ -159,7 +159,7 @@ terraform/
    terraform {
      backend "gcs" {
        bucket = "your-terraform-state-bucket"
-       prefix = "frameio-webhook"
+       prefix = "cambridge"
      }
    }
    ```

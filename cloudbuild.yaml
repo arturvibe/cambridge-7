@@ -4,8 +4,8 @@
 
 substitutions:
   _REGION: europe-west1
-  _ARTIFACT_REGISTRY_REPO: frameio-webhook-repo
-  _SERVICE_NAME: frameio-webhook
+  _ARTIFACT_REGISTRY_REPO: cambridge-repo
+  _SERVICE_NAME: cambridge
 
 steps:
   # Build the container image

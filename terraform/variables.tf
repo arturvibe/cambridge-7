@@ -18,11 +18,11 @@ variable "github_actions_sa_name" {
 variable "service_name" {
   description = "Cloud Run service name"
   type        = string
-  default     = "frameio-webhook"
+  default     = "cambridge"
 }
 
 variable "artifact_registry_repo_name" {
   description = "Artifact Registry repository name for Docker images"
   type        = string
-  default     = "frameio-webhook-repo"
+  default     = "cambridge-repo"
 }

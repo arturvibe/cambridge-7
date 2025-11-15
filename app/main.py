@@ -30,7 +30,7 @@ async def root():
     """Health check endpoint."""
     return {
         "status": "healthy",
-        "service": "frameio-webhook-receiver",
+        "service": "cambridge",
         "timestamp": datetime.utcnow().isoformat()
     }
 
