@@ -35,7 +35,10 @@ docker build -t cambridge . && docker run -p 8080:8080 cambridge
 **CI/CD:**
 - commitlint (PRs only) → validates all commits in PR
 - test (PRs only) → runs pytest with coverage
-- deploy (manual) → workflow_dispatch to Cloud Run
+- deploy (manual) → workflow_dispatch with blue-green deployment to Cloud Run
+  - Step 1: Deploy new revision with `--no-traffic` (tagged with commit SHA)
+  - Step 2: Validate `/health` endpoint (5 retries, 3s intervals)
+  - Step 3: Migrate 100% traffic to new revision
 
 ## Conventions
 
@@ -140,6 +143,12 @@ terraform output -raw github_actions_service_account_key | base64 -d > key.json
 **Branch pattern:** `claude/claude-md-<session-id>` (never push to main)
 
 **Process:** Commit → Tests auto-run → Commitlint validates → Manual deploy via Actions
+
+**Blue-Green Deployment:**
+1. **Deploy (no traffic):** New revision deployed with `--no-traffic` flag, tagged with commit SHA
+2. **Validate:** Health check on new revision URL (5 attempts, 3s intervals, must return HTTP 200)
+3. **Migrate traffic:** If validation passes, 100% traffic switches to new revision
+4. **Rollback:** If validation fails, deployment aborts (old revision keeps serving traffic)
 
 ## Frame.io Integration
 

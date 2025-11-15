@@ -8,6 +8,7 @@ env:
   SERVICE_NAME: cambridge
   REGION: europe-west1
   ARTIFACT_REGISTRY_REPO: cambridge-repo
+  REVISION_TAG: ${{ github.sha }}
 
 jobs:
   deploy:
@@ -45,33 +46,81 @@ jobs:
           docker push $REGION-docker.pkg.dev/$PROJECT_ID/$ARTIFACT_REGISTRY_REPO/$SERVICE_NAME:$GITHUB_SHA
           docker push $REGION-docker.pkg.dev/$PROJECT_ID/$ARTIFACT_REGISTRY_REPO/$SERVICE_NAME:latest
 
-      - name: Deploy to Cloud Run
-        run: |
-          gcloud run deploy $SERVICE_NAME \
-            --image $REGION-docker.pkg.dev/$PROJECT_ID/$ARTIFACT_REGISTRY_REPO/$SERVICE_NAME:$GITHUB_SHA \
-            --platform managed \
-            --region $REGION \
-            --allow-unauthenticated \
-            --max-instances 1 \
-            --memory 512Mi \
-            --cpu 1 \
-            --port 8080 \
-            --timeout 60
+      # Step 1: Deploy the New Revision with No Traffic
+      - name: Deploy new revision with no traffic
+        id: deploy
+        uses: google-github-actions/deploy-cloudrun@v2
+        with:
+          service: ${{ env.SERVICE_NAME }}
+          region: ${{ env.REGION }}
+          image: ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.ARTIFACT_REGISTRY_REPO }}/${{ env.SERVICE_NAME }}:${{ github.sha }}
+          no_traffic: true
+          tag: ${{ env.REVISION_TAG }}
+          flags: |
+            --allow-unauthenticated
+            --max-instances=1
+            --memory=512Mi
+            --cpu=1
+            --port=8080
+            --timeout=60
 
-      - name: Get Service URL
-        id: get-url
+      - name: Get new revision URL
+        id: get-revision-url
         run: |
-          SERVICE_URL=$(gcloud run services describe $SERVICE_NAME \
-            --platform managed \
+          # Get the URL for the tagged revision from GCP
+          REVISION_URL=$(gcloud run services describe $SERVICE_NAME \
+            --region=$REGION \
+            --platform=managed \
+            --format='value(status.traffic.where(tag='$REVISION_TAG').url.first())')
+
+          echo "revision_url=$REVISION_URL" >> $GITHUB_OUTPUT
+          echo "New revision URL: $REVISION_URL"
+          echo "✅ New revision deployed with no traffic (tagged as '$REVISION_TAG')"
+
+      # Step 2: Validate /health endpoint
+      - name: Validate health endpoint on new revision
+        run: |
+          REVISION_URL="${{ steps.get-revision-url.outputs.revision_url }}"
+          echo "Validating health endpoint at: $REVISION_URL/health"
+
+          # Retry logic for health check (max 5 attempts with 3s between)
+          MAX_ATTEMPTS=5
+          ATTEMPT=1
+
+          while [ $ATTEMPT -le $MAX_ATTEMPTS ]; do
+            echo "Health check attempt $ATTEMPT/$MAX_ATTEMPTS..."
+
+            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "$REVISION_URL/health" || echo "000")
+
+            if [ "$HTTP_CODE" = "200" ]; then
+              echo "✅ Health check passed (HTTP $HTTP_CODE)"
+              exit 0
+            else
+              echo "⚠️  Health check failed (HTTP $HTTP_CODE)"
+
+              if [ $ATTEMPT -eq $MAX_ATTEMPTS ]; then
+                echo "❌ Health check failed after $MAX_ATTEMPTS attempts"
+                exit 1
+              fi
+
+              echo "Waiting 3 seconds before retry..."
+              sleep 3
+              ATTEMPT=$((ATTEMPT + 1))
+            fi
+          done
+
+      # Step 3: Migrate 100% of Traffic
+      - name: Migrate 100% traffic to new revision
+        run: |
+          gcloud run services update-traffic $SERVICE_NAME \
             --region $REGION \
-            --format 'value(status.url)')
-          echo "url=$SERVICE_URL" >> $GITHUB_OUTPUT
-          echo "Service URL: $SERVICE_URL"
+            --to-tags=$REVISION_TAG=100
+          echo "✅ Traffic migrated to new revision (100%)"
 
       - name: Display deployment info
         run: |
-          echo "✅ Deployment successful!"
+          echo "✅ Blue-green deployment successful!"
           echo "Service: $SERVICE_NAME"
           echo "Region: $REGION"
-          echo "URL: ${{ steps.get-url.outputs.url }}"
-          echo "Webhook endpoint: ${{ steps.get-url.outputs.url }}/api/v1/frameio/webhook"
+          echo "URL: ${{ steps.deploy.outputs.url }}"
+          echo "Webhook endpoint: ${{ steps.deploy.outputs.url }}/api/v1/frameio/webhook"
