@@ -28,7 +28,7 @@ RUN useradd -m -u 1000 appuser && \
 COPY --from=builder /root/.local /home/appuser/.local
 
 # Copy application code
-COPY --chown=appuser:appuser app/main.py app/main.py
+COPY --chown=appuser:appuser app/ app/
 
 # Switch to non-root user
 USER appuser
@@ -46,5 +46,5 @@ EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8080/health')"
 
-# Run the application
-CMD ["python", "app/main.py"]
+# Run the application using module syntax for proper imports
+CMD ["python", "-m", "app.main"]
