@@ -39,6 +39,7 @@ docker build -t cambridge . && docker run -p 8080:8080 cambridge
   - Step 1: Deploy new revision with `--no-traffic` (tagged with commit SHA)
   - Step 2: Validate `/health` endpoint (5 retries, 3s intervals)
   - Step 3: Migrate 100% traffic to new revision
+  - Step 4: Tag deployed image with `deployed` tag in Artifact Registry
 
 ## Conventions
 
@@ -78,7 +79,7 @@ Examples:
 
 **GCP (via Terraform):**
 - Service: `cambridge` (europe-west1, 512Mi, 1 CPU, max 1 instance)
-- Artifact Registry for images
+- Artifact Registry for images (tags: `<commit-sha>`, `latest`, `deployed`)
 - Service account for GitHub Actions
 - Unauthenticated access (required for webhooks)
 
@@ -133,6 +134,9 @@ curl -X POST http://localhost:8080/api/v1/frameio/webhook \
 # GCP logs
 gcloud logging tail "resource.type=cloud_run_revision AND resource.labels.service_name=cambridge"
 
+# View deployed image in Artifact Registry
+gcloud artifacts docker tags list europe-west1-docker.pkg.dev/$PROJECT_ID/cambridge-repo/cambridge
+
 # Terraform
 cd terraform && terraform init && terraform apply
 terraform output -raw github_actions_service_account_key | base64 -d > key.json
@@ -148,7 +152,8 @@ terraform output -raw github_actions_service_account_key | base64 -d > key.json
 1. **Deploy (no traffic):** New revision deployed with `--no-traffic` flag, tagged with commit SHA
 2. **Validate:** Health check on new revision URL (5 attempts, 3s intervals, must return HTTP 200)
 3. **Migrate traffic:** If validation passes, 100% traffic switches to new revision
-4. **Rollback:** If validation fails, deployment aborts (old revision keeps serving traffic)
+4. **Tag image:** Successfully deployed image tagged with `deployed` in Artifact Registry
+5. **Rollback:** If validation fails, deployment aborts (old revision keeps serving traffic)
 
 ## Frame.io Integration
 
