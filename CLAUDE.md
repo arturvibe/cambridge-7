@@ -2,14 +2,15 @@
 
 FastAPI webhook receiver for Frame.io V4 → logs payloads to GCP Cloud Run → viewable via Cloud Logging.
 
-**Stack:** Python 3.11 • FastAPI 0.109.0 • Docker • GCP Cloud Run • Terraform
+**Stack:** Python 3.11 • FastAPI 0.109.0 • google-cloud-logging • Docker • GCP Cloud Run • Terraform
 
 **Flow:** `Frame.io → /api/v1/frameio/webhook → stdout → Cloud Logging`
 
 ## Structure
 
 **Core files:**
-- `app/main.py` - FastAPI app (127 lines, only Python file)
+- `app/main.py` - FastAPI app (126 lines)
+- `app/logging_config.py` - Logging configuration with Cloud Run detection
 - `tests/test_main.py` - Unit tests (90%+ coverage)
 - `Dockerfile` - Multi-stage build
 - `.github/workflows/` - CI/CD (commitlint, test, deploy)
@@ -54,7 +55,11 @@ Examples:
 - **Format:** black (88 char line length)
 - **Lint:** flake8, mypy
 - **FastAPI:** async/await, JSONResponse, type hints, docstrings
-- **Logging:** INFO level, structured (see app/main.py:82-101)
+- **Logging:**
+  - Config: `app/logging_config.py` with `setup_global_logging()`
+  - Cloud Run: google-cloud-logging with trace correlation (detected via K_SERVICE env var)
+  - Local/Test: Standard Python logging to stdout
+  - Structured JSON: Single log entry per webhook (see app/main.py:81-100)
 - **Tests:** 90%+ coverage, Test* classes, descriptive names, fixtures
 
 ## Architecture
@@ -74,6 +79,13 @@ Examples:
 - Service account for GitHub Actions
 - Unauthenticated access (required for webhooks)
 
+**Logging Architecture:**
+- **Environment Detection:** `app/logging_config.py` checks `K_SERVICE` env var
+- **Cloud Run Mode:** Uses `google-cloud-logging` for structured logs with automatic trace correlation
+- **Local/Test Mode:** Falls back to standard Python logging to stdout
+- **Structured Logging:** Webhooks logged as single JSON object with all fields in `jsonPayload`
+- **Benefits:** Request trace grouping in GCP Console, queryable log fields, single-line log entries
+
 ## Workflow
 
 **Making changes:**
@@ -83,9 +95,10 @@ Examples:
 4. Before commit: `black app/ tests/` + verify commit format
 
 **Common tasks:**
-- Add webhook field: Extract in app/main.py:72-79 → Log at :82-101 → Add tests
+- Add webhook field: Extract in app/main.py:72-79 → Log at :83-97 → Add tests
 - Change Cloud Run config: Edit `.github/workflows/deploy.yml:48-59`
 - Add endpoint: app/main.py + tests/test_main.py + README + maintain 90% coverage
+- Modify logging: Edit `app/logging_config.py` (K_SERVICE detection for Cloud Run)
 
 **GitHub Actions best practices:**
 - Use `pull_request` trigger only for PR checks (not both `push` and `pull_request`)

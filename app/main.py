@@ -11,10 +11,11 @@ from datetime import datetime, UTC
 from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-)
+from app.logging_config import setup_global_logging
+
+# Configure logging based on environment (Cloud Run vs local/test)
+setup_global_logging()
+
 logger = logging.getLogger(__name__)
 
 app = FastAPI(
@@ -77,29 +78,26 @@ async def frameio_webhook(request: Request):
         project_id = payload.get("project", {}).get("id")
         user_id = payload.get("user", {}).get("id")
 
-        # Log the webhook data with structured information
-        logger.info("=" * 80)
-        logger.info("FRAME.IO WEBHOOK RECEIVED")
-        logger.info("=" * 80)
-        logger.info(f"Event Type: {event_type}")
-        logger.info(f"Resource Type: {resource_type}")
-        logger.info(f"Resource ID: {resource_id}")
-        logger.info(f"Account ID: {account_id}")
-        logger.info(f"Workspace ID: {workspace_id}")
-        logger.info(f"Project ID: {project_id}")
-        logger.info(f"User ID: {user_id}")
-        logger.info(f"User Agent: {user_agent}")
-        logger.info(f"Timestamp: {datetime.now(UTC).isoformat()}")
-        logger.info(
-            f"Client IP: {request.client.host if request.client else 'unknown'}"
-        )
-        logger.info("-" * 80)
-        logger.info("HEADERS:")
-        logger.info(json.dumps(headers, indent=2, default=str))
-        logger.info("-" * 80)
-        logger.info("FULL PAYLOAD:")
-        logger.info(json.dumps(payload, indent=2, default=str))
-        logger.info("=" * 80)
+        # Log webhook data as structured JSON for Cloud Logging
+        # Single log entry with jsonPayload and automatic trace correlation
+        log_data = {
+            "message": "FRAME.IO WEBHOOK RECEIVED",
+            "event_type": event_type,
+            "resource_type": resource_type,
+            "resource_id": resource_id,
+            "account_id": account_id,
+            "workspace_id": workspace_id,
+            "project_id": project_id,
+            "user_id": user_id,
+            "user_agent": user_agent,
+            "timestamp": datetime.now(UTC).isoformat(),
+            "client_ip": request.client.host if request.client else "unknown",
+            "headers": headers,
+            "payload": payload,
+        }
+
+        # Log as structured JSON - Cloud Logging will populate jsonPayload field
+        logger.info(json.dumps(log_data, default=str))
 
         # Return success response
         return JSONResponse(
