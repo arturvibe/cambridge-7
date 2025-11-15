@@ -14,17 +14,31 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: "~1.0"
 
-      - name: Terraform Format Check
+      - name: Auto-format Terraform files
         id: fmt
-        run: terraform fmt -check -recursive
+        run: terraform fmt -recursive
         working-directory: ./terraform
-        continue-on-error: true
+
+      - name: Commit formatted files
+        run: |
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+          git add terraform/
+          if ! git diff --staged --quiet; then
+            git commit -m "style: auto-format terraform files"
+            git push
+          else
+            echo "No formatting changes needed"
+          fi
 
       - name: Terraform Init
         id: init
@@ -35,10 +49,3 @@ jobs:
         id: validate
         run: terraform validate -no-color
         working-directory: ./terraform
-
-      - name: Check Format Results
-        if: steps.fmt.outcome == 'failure'
-        run: |
-          echo "❌ Terraform files are not properly formatted"
-          echo "Run 'terraform fmt -recursive' in the terraform directory to fix"
-          exit 1
