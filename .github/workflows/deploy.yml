@@ -76,10 +76,11 @@ jobs:
         run: |
           # Get the URL for the tagged revision from GCP
           REVISION_TAG="${{ steps.vars.outputs.revision_tag }}"
-          REVISION_URL=$(gcloud run services describe $SERVICE_NAME \
-            --region=$REGION \
+          REVISION_URL=$(gcloud run services describe ${{ env.SERVICE_NAME }} \
+            --region=${{ env.REGION }} \
             --platform=managed \
-            --format="value(status.traffic.where(tag:$REVISION_TAG).url)")
+            --format='json' | \
+            jq -r --arg REVISION_TAG "$REVISION_TAG" '.status.traffic[] | select(.tag == $REVISION_TAG) | .url')
 
           echo "revision_url=$REVISION_URL" >> $GITHUB_OUTPUT
           echo "New revision URL: $REVISION_URL"
