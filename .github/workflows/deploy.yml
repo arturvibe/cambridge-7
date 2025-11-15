@@ -84,7 +84,7 @@ jobs:
           REVISION_URL="${{ steps.get-revision-url.outputs.revision_url }}"
           echo "Validating health endpoint at: $REVISION_URL/health"
 
-          # Retry logic for health check (max 5 attempts with 10s between)
+          # Retry logic for health check (max 5 attempts with 3s between)
           MAX_ATTEMPTS=5
           ATTEMPT=1
 
@@ -104,8 +104,8 @@ jobs:
                 exit 1
               fi
 
-              echo "Waiting 10 seconds before retry..."
-              sleep 10
+              echo "Waiting 3 seconds before retry..."
+              sleep 3
               ATTEMPT=$((ATTEMPT + 1))
             fi
           done

@@ -111,7 +111,7 @@ The deployment uses a **blue-green deployment strategy** for zero-downtime deplo
 4. Click "Run workflow" → "Run workflow"
 5. The workflow will:
    - **Step 1:** Deploy new revision with no traffic (tagged as 'blue')
-   - **Step 2:** Validate the `/health` endpoint (5 retries, 10s intervals)
+   - **Step 2:** Validate the `/health` endpoint (5 retries, 3s intervals)
    - **Step 3:** If validation passes, migrate 100% traffic to the new revision
    - **Rollback:** If validation fails, deployment aborts (old revision continues serving)
 6. The service URL will be displayed in the workflow logs
