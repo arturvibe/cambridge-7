@@ -31,7 +31,10 @@ pytest --cov=app --cov-report=term-missing  # Must maintain 90%+ coverage
 docker build -t cambridge . && docker run -p 8080:8080 cambridge
 ```
 
-**CI/CD:** commitlint (validate commits) → test (pytest on PRs) → deploy (manual to Cloud Run)
+**CI/CD:**
+- commitlint (PRs only) → validates all commits in PR
+- test (PRs only) → runs pytest with coverage
+- deploy (manual) → workflow_dispatch to Cloud Run
 
 ## Conventions
 
@@ -83,6 +86,11 @@ Examples:
 - Add webhook field: Extract in app/main.py:72-79 → Log at :82-101 → Add tests
 - Change Cloud Run config: Edit `.github/workflows/deploy.yml:48-59`
 - Add endpoint: app/main.py + tests/test_main.py + README + maintain 90% coverage
+
+**GitHub Actions best practices:**
+- Use `pull_request` trigger only for PR checks (not both `push` and `pull_request`)
+- Avoid duplicate workflow runs by choosing one trigger per workflow
+- Current setup: commitlint + test run on PRs only, deploy is manual
 
 **Security notes:**
 - Unauthenticated access (required for webhooks)
