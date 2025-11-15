@@ -355,32 +355,6 @@ See `.github/workflows/test.yml` for CI configuration and `tests/README.md` for 
 
 3. **Test the endpoints** (same curl commands as above)
 
-**Option 3: Run with Docker Compose** (recommended for development)
-
-1. **Create `docker-compose.yml`:**
-   ```yaml
-   version: '3.8'
-   services:
-     app:
-       build: .
-       ports:
-         - "8080:8080"
-       volumes:
-         - ./app:/app/app  # Hot reload for development
-       environment:
-         - PYTHONUNBUFFERED=1
-   ```
-
-2. **Run:**
-   ```bash
-   docker-compose up
-   ```
-
-3. **Stop:**
-   ```bash
-   docker-compose down
-   ```
-
 ## Testing
 
 ### Testing Locally
