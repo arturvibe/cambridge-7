@@ -45,7 +45,8 @@ jobs:
           docker push $REGION-docker.pkg.dev/$PROJECT_ID/$ARTIFACT_REGISTRY_REPO/$SERVICE_NAME:$GITHUB_SHA
           docker push $REGION-docker.pkg.dev/$PROJECT_ID/$ARTIFACT_REGISTRY_REPO/$SERVICE_NAME:latest
 
-      - name: Deploy to Cloud Run
+      # Step 1: Deploy the New Revision with No Traffic
+      - name: Deploy new revision with no traffic
         run: |
           gcloud run deploy $SERVICE_NAME \
             --image $REGION-docker.pkg.dev/$PROJECT_ID/$ARTIFACT_REGISTRY_REPO/$SERVICE_NAME:$GITHUB_SHA \
@@ -56,7 +57,67 @@ jobs:
             --memory 512Mi \
             --cpu 1 \
             --port 8080 \
-            --timeout 60
+            --timeout 60 \
+            --no-traffic \
+            --tag blue
+          echo "✅ New revision deployed with no traffic (tagged as 'blue')"
+
+      - name: Get new revision URL
+        id: get-revision-url
+        run: |
+          REVISION_URL=$(gcloud run services describe $SERVICE_NAME \
+            --platform managed \
+            --region $REGION \
+            --format 'value(status.traffic[0].url)' | grep blue || \
+            gcloud run services describe $SERVICE_NAME \
+            --platform managed \
+            --region $REGION \
+            --format 'value(status.url)')
+          # Get the URL for the blue tag
+          BLUE_URL="https://blue---${SERVICE_NAME}-$(echo $REGION | tr -d '-')-$(gcloud config get-value project | tr ':' '-').a.run.app"
+          echo "revision_url=$BLUE_URL" >> $GITHUB_OUTPUT
+          echo "New revision URL: $BLUE_URL"
+
+      # Step 2: Validate /health endpoint
+      - name: Validate health endpoint on new revision
+        run: |
+          REVISION_URL="${{ steps.get-revision-url.outputs.revision_url }}"
+          echo "Validating health endpoint at: $REVISION_URL/health"
+
+          # Retry logic for health check (max 5 attempts with 10s between)
+          MAX_ATTEMPTS=5
+          ATTEMPT=1
+
+          while [ $ATTEMPT -le $MAX_ATTEMPTS ]; do
+            echo "Health check attempt $ATTEMPT/$MAX_ATTEMPTS..."
+
+            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "$REVISION_URL/health" || echo "000")
+
+            if [ "$HTTP_CODE" = "200" ]; then
+              echo "✅ Health check passed (HTTP $HTTP_CODE)"
+              exit 0
+            else
+              echo "⚠️  Health check failed (HTTP $HTTP_CODE)"
+
+              if [ $ATTEMPT -eq $MAX_ATTEMPTS ]; then
+                echo "❌ Health check failed after $MAX_ATTEMPTS attempts"
+                exit 1
+              fi
+
+              echo "Waiting 10 seconds before retry..."
+              sleep 10
+              ATTEMPT=$((ATTEMPT + 1))
+            fi
+          done
+
+      # Step 3: Migrate 100% of Traffic
+      - name: Migrate 100% traffic to new revision
+        run: |
+          gcloud run services update-traffic $SERVICE_NAME \
+            --platform managed \
+            --region $REGION \
+            --to-latest
+          echo "✅ Traffic migrated to new revision (100%)"
 
       - name: Get Service URL
         id: get-url
@@ -70,7 +131,7 @@ jobs:
 
       - name: Display deployment info
         run: |
-          echo "✅ Deployment successful!"
+          echo "✅ Blue-green deployment successful!"
           echo "Service: $SERVICE_NAME"
           echo "Region: $REGION"
           echo "URL: ${{ steps.get-url.outputs.url }}"
