@@ -40,7 +40,7 @@ resource "google_project_service" "iam" {
 resource "google_artifact_registry_repository" "docker_repo" {
   location      = var.region
   repository_id = var.artifact_registry_repo_name
-  description   = "Docker repository for Frame.io webhook application"
+  description   = "Docker repository for cambridge application"
   format        = "DOCKER"
   project       = var.project_id
 
