@@ -44,16 +44,7 @@ resource "google_artifact_registry_repository" "docker_repo" {
   format        = "DOCKER"
   project       = var.project_id
 
-  # Cleanup policy: keep all deployed images and 7 most recent versions
-  cleanup_policies {
-    id     = "keep-deployed-images"
-    action = "KEEP"
-    condition {
-      tag_state    = "TAGGED"
-      tag_prefixes = ["deployed-"]
-    }
-  }
-
+  # Cleanup policy: keep only 7 most recent versions (including deployed images)
   cleanup_policies {
     id     = "keep-recent-versions"
     action = "KEEP"
@@ -63,7 +54,7 @@ resource "google_artifact_registry_repository" "docker_repo" {
   }
 
   cleanup_policies {
-    id     = "delete-old-untagged"
+    id     = "delete-old-versions"
     action = "DELETE"
     condition {
       tag_state = "ANY"
