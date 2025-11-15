@@ -5,10 +5,8 @@ A FastAPI application that receives Frame.io webhooks and logs payloads to stdou
 ## Features
 
 - FastAPI endpoint at `/api/v1/frameio/webhook` to receive Frame.io V4 webhooks
-- **Webhook signature verification** using HMAC SHA256 for security
 - Parses and logs Frame.io-specific payload structure (event type, resource details, account/workspace/project IDs)
 - Logs complete webhook payloads (headers + body) to stdout
-- Configurable signature verification (can be disabled for testing)
 - Docker containerized with Multi-Stage Builds for optimal image size
 - Ready to deploy on GCP Cloud Run
 - Single-click CD via GitHub Actions
@@ -167,51 +165,7 @@ curl -X POST \
   }'
 ```
 
-**IMPORTANT:** The response will include a `signing_secret` - **save this immediately** as it's only shown once!
-
-Example response:
-```json
-{
-  "data": {
-    "id": "webhook-id",
-    "name": "Cloud Run Webhook Receiver",
-    "signing_secret": "your-secret-key-here",
-    ...
-  }
-}
-```
-
-### Step 3: Configure the signing secret in Cloud Run
-
-**Option A: Using gcloud CLI (Recommended)**
-
-```bash
-gcloud run services update frameio-webhook \
-    --region us-central1 \
-    --set-env-vars FRAMEIO_WEBHOOK_SECRET=your-secret-key-here
-```
-
-**Option B: Using GCP Console**
-
-1. Go to [Cloud Run Console](https://console.cloud.google.com/run)
-2. Click on `frameio-webhook` service
-3. Click "EDIT & DEPLOY NEW REVISION"
-4. Go to "Variables & Secrets" → "Environment variables"
-5. Add: `FRAMEIO_WEBHOOK_SECRET` = `your-secret-key-here`
-6. Click "DEPLOY"
-
-**Option C: Add to GitHub Actions workflow**
-
-Add the secret to GitHub Secrets:
-- Go to repository → Settings → Secrets → Actions
-- Add secret: `FRAMEIO_WEBHOOK_SECRET`
-
-Then update `.github/workflows/deploy.yml` to include:
-```yaml
---set-env-vars FRAMEIO_WEBHOOK_SECRET=${{ secrets.FRAMEIO_WEBHOOK_SECRET }}
-```
-
-### Step 4: Test the webhook
+### Step 3: Test the webhook
 
 Send a test webhook or trigger an event in Frame.io (e.g., upload a file) and check the logs to verify it's working.
 
@@ -242,18 +196,6 @@ Choose from these V4 webhook events:
 - `collection.created`, `collection.updated`, `collection.deleted`
 - `share.created`, `share.updated`, `share.deleted`, `share.viewed`
 
-### Disabling Signature Verification (for testing)
-
-If you want to test without signature verification:
-
-```bash
-gcloud run services update frameio-webhook \
-    --region us-central1 \
-    --set-env-vars VERIFY_SIGNATURES=false
-```
-
-**⚠️ Not recommended for production!**
-
 ## Viewing Logs and Webhook Payloads
 
 ### Method 1: GCP Console (Web UI)
@@ -274,14 +216,11 @@ gcloud run services update frameio-webhook \
    Project ID: 7e46e495-4444-4555-8649-bee4d391a997
    User ID: 56556a3f-859f-4b38-b6c6-e8625b5da8a5
    User Agent: Frame.io V4 API
-   Signature Verified: True
    Timestamp: 2024-01-15T10:30:45.123456
    Client IP: xxx.xxx.xxx.xxx
    --------------------------------------------------------------------------------
    HEADERS:
    {
-     "x-frameio-request-timestamp": "1604004499",
-     "x-frameio-signature": "v0=a77ce6856e609c884575c2fd211d07a9...",
      "user-agent": "Frame.io V4 API",
      "content-type": "application/json",
      ...
@@ -364,9 +303,9 @@ curl https://your-service-url.run.app/health
 
 ### Test the webhook endpoint locally:
 ```bash
-# Run locally (with signature verification disabled for testing)
+# Run locally
 docker build -t frameio-webhook .
-docker run -p 8080:8080 -e VERIFY_SIGNATURES=false frameio-webhook
+docker run -p 8080:8080 frameio-webhook
 
 # Send test webhook with Frame.io V4 payload structure
 curl -X POST http://localhost:8080/api/v1/frameio/webhook \
@@ -385,14 +324,8 @@ curl -X POST http://localhost:8080/api/v1/frameio/webhook \
     }'
 ```
 
-### Test the deployed webhook (without signature):
+### Test the deployed webhook:
 ```bash
-# Temporarily disable signature verification for testing
-gcloud run services update frameio-webhook \
-    --region us-central1 \
-    --set-env-vars VERIFY_SIGNATURES=false
-
-# Send test request
 curl -X POST https://your-service-url.run.app/api/v1/frameio/webhook \
     -H "Content-Type: application/json" \
     -H "User-Agent: Frame.io V4 API" \
@@ -407,11 +340,6 @@ curl -X POST https://your-service-url.run.app/api/v1/frameio/webhook \
       "project": {"id": "test-project-id"},
       "user": {"id": "test-user-id"}
     }'
-
-# Re-enable signature verification
-gcloud run services update frameio-webhook \
-    --region us-central1 \
-    --set-env-vars VERIFY_SIGNATURES=true
 ```
 
 ## Monitoring
@@ -471,23 +399,13 @@ gcloud alpha monitoring policies create \
 - Verify PORT environment variable is handled correctly
 - Check Cloud Run logs for startup errors
 
-### Signature verification failures:
-- Verify `FRAMEIO_WEBHOOK_SECRET` environment variable is set correctly
-- Check that the secret matches the one returned when creating the webhook
-- Ensure webhook was created with the correct URL
-- For testing, temporarily disable verification: `VERIFY_SIGNATURES=false`
-- Check logs for "Invalid webhook signature" or timestamp warnings
-
 ## Security Considerations
 
-- **Webhook signature verification** is implemented using HMAC SHA256
-- Frame.io signs all webhooks with `X-Frameio-Signature` header
-- Timestamp validation prevents replay attacks (5-minute tolerance window)
 - The service is deployed with `--allow-unauthenticated` for webhook reception (required for Frame.io to send webhooks)
-- **Store signing secret securely**: Use Cloud Run environment variables or GCP Secret Manager
-- Signature verification can be disabled for testing via `VERIFY_SIGNATURES=false` environment variable
 - Review and restrict service account permissions as needed
+- Consider implementing webhook signature verification for production use (Frame.io provides signing secrets)
 - Consider additional rate limiting for production workloads
+- Monitor logs for unexpected webhook sources or patterns
 
 ## Cost Optimization
 
