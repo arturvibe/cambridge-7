@@ -1,0 +1,1 @@
+"""Cambridge FastAPI application package."""
