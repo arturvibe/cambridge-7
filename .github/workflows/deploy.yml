@@ -132,14 +132,17 @@ jobs:
       - name: Tag deployed image in Artifact Registry
         run: |
           IMAGE_PATH="$REGION-docker.pkg.dev/$PROJECT_ID/$ARTIFACT_REGISTRY_REPO/$SERVICE_NAME"
+          TIMESTAMP=$(date -u +%Y%m%d-%H%M%S)
+          DEPLOYED_TAG="deployed-$TIMESTAMP"
 
-          # Add 'deployed' tag to the successfully deployed image
+          # Add timestamped 'deployed-<timestamp>' tag to track deployment history
           gcloud artifacts docker tags add \
             "$IMAGE_PATH:${{ steps.vars.outputs.short_sha }}" \
-            "$IMAGE_PATH:deployed"
+            "$IMAGE_PATH:$DEPLOYED_TAG"
 
-          echo "✅ Tagged image with 'deployed' tag in Artifact Registry"
-          echo "Image: $IMAGE_PATH:deployed"
+          echo "✅ Tagged image with '$DEPLOYED_TAG' in Artifact Registry"
+          echo "Image: $IMAGE_PATH:$DEPLOYED_TAG"
+          echo "All successfully deployed images are preserved with deployed-* tags"
 
       - name: Display deployment info
         run: |
