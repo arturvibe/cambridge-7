@@ -8,7 +8,7 @@ env:
   SERVICE_NAME: cambridge
   REGION: europe-west1
   ARTIFACT_REGISTRY_REPO: cambridge-repo
-  REVISION_TAG: blue
+  REVISION_TAG: ${{ github.sha }}
 
 jobs:
   deploy:

@@ -110,7 +110,7 @@ The deployment uses a **blue-green deployment strategy** for zero-downtime deplo
 3. Select "Deploy to Cloud Run" workflow
 4. Click "Run workflow" → "Run workflow"
 5. The workflow will:
-   - **Step 1:** Deploy new revision with no traffic (tagged as 'blue')
+   - **Step 1:** Deploy new revision with no traffic (tagged with commit SHA)
    - **Step 2:** Validate the `/health` endpoint (5 retries, 3s intervals)
    - **Step 3:** If validation passes, migrate 100% traffic to the new revision
    - **Rollback:** If validation fails, deployment aborts (old revision continues serving)
