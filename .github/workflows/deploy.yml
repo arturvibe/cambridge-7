@@ -10,7 +10,27 @@ env:
   ARTIFACT_REGISTRY_REPO: cambridge-repo
 
 jobs:
+  validate_terraform:
+    name: Validate Terraform
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: 1.0.0
+
+      - name: Terraform Init
+        run: terraform -chdir=terraform init -backend=false
+
+      - name: Terraform Validate
+        run: terraform -chdir=terraform validate
+
   deploy:
+    needs: validate_terraform
     name: Deploy to GCP Cloud Run
     runs-on: ubuntu-latest
 
