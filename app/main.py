@@ -6,7 +6,7 @@ Logs webhook payloads to stdout for viewing in GCP Cloud Run logs.
 import json
 import logging
 import os
-from datetime import datetime
+from datetime import datetime, UTC
 
 from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse
@@ -31,7 +31,7 @@ async def root():
     return {
         "status": "healthy",
         "service": "cambridge",
-        "timestamp": datetime.utcnow().isoformat()
+        "timestamp": datetime.now(UTC).isoformat()
     }
 
 
@@ -90,7 +90,7 @@ async def frameio_webhook(request: Request):
         logger.info(f"Project ID: {project_id}")
         logger.info(f"User ID: {user_id}")
         logger.info(f"User Agent: {user_agent}")
-        logger.info(f"Timestamp: {datetime.utcnow().isoformat()}")
+        logger.info(f"Timestamp: {datetime.now(UTC).isoformat()}")
         logger.info(f"Client IP: {request.client.host if request.client else 'unknown'}")
         logger.info("-" * 80)
         logger.info("HEADERS:")
@@ -107,7 +107,7 @@ async def frameio_webhook(request: Request):
                 "status": "received",
                 "event_type": event_type,
                 "resource_type": resource_type,
-                "timestamp": datetime.utcnow().isoformat()
+                "timestamp": datetime.now(UTC).isoformat()
             }
         )
 

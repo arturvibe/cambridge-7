@@ -120,7 +120,7 @@ class TestFrameIOWebhook:
         with caplog.at_level("ERROR"):
             response = client.post(
                 "/api/v1/frameio/webhook",
-                data="invalid json{{{",
+                content=b"invalid json{{{",
                 headers={"Content-Type": "application/json"}
             )
 
