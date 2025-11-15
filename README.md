@@ -11,6 +11,8 @@ A FastAPI application that receives Frame.io webhooks and logs payloads to stdou
 - Ready to deploy on GCP Cloud Run
 - Single-click CD via GitHub Actions
 - Health check endpoints for monitoring
+- Comprehensive unit tests with 90% code coverage
+- Conventional Commits enforcement via CI
 
 ## Architecture
 
@@ -423,7 +425,8 @@ gcloud alpha monitoring policies create \
 ├── Dockerfile                   # Multi-stage Docker build
 ├── .dockerignore               # Docker build exclusions
 ├── .gitignore                  # Git ignore rules
-├── cloudbuild.yaml             # GCP Cloud Build config
+├── .commitlintrc.json          # Commitlint configuration
+├── CONTRIBUTING.md             # Contribution guidelines
 └── README.md                    # This file
 ```
 
@@ -460,6 +463,16 @@ gcloud alpha monitoring policies create \
 - 512Mi memory and 1 CPU should handle most webhook workloads
 - **Max instances set to 1** to minimize costs (webhooks are processed sequentially)
 - Service scales to zero when not receiving webhooks (no idle costs)
+
+## Contributing
+
+This project follows [Conventional Commits](https://www.conventionalcommits.org/) for commit messages. All commits are validated via CI using commitlint.
+
+Please see [CONTRIBUTING.md](CONTRIBUTING.md) for:
+- Commit message format and examples
+- Pull request process
+- Code quality guidelines
+- Testing requirements
 
 ## License
 
