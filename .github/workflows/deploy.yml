@@ -8,6 +8,7 @@ env:
   SERVICE_NAME: cambridge
   REGION: europe-west1
   ARTIFACT_REGISTRY_REPO: cambridge-repo
+  REVISION_TAG: blue
 
 jobs:
   deploy:
@@ -54,7 +55,7 @@ jobs:
           region: ${{ env.REGION }}
           image: ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.ARTIFACT_REGISTRY_REPO }}/${{ env.SERVICE_NAME }}:${{ github.sha }}
           no_traffic: true
-          tag: blue
+          tag: ${{ env.REVISION_TAG }}
           flags: |
             --allow-unauthenticated
             --max-instances=1
@@ -66,11 +67,11 @@ jobs:
       - name: Get new revision URL
         id: get-revision-url
         run: |
-          # Get the URL for the blue tag
-          BLUE_URL="https://blue---${SERVICE_NAME}-$(echo $REGION | tr -d '-')-${PROJECT_ID//:/-}.a.run.app"
-          echo "revision_url=$BLUE_URL" >> $GITHUB_OUTPUT
-          echo "New revision URL: $BLUE_URL"
-          echo "✅ New revision deployed with no traffic (tagged as 'blue')"
+          # Get the URL for the tagged revision
+          REVISION_URL="https://${REVISION_TAG}---${SERVICE_NAME}-$(echo $REGION | tr -d '-')-${PROJECT_ID//:/-}.a.run.app"
+          echo "revision_url=$REVISION_URL" >> $GITHUB_OUTPUT
+          echo "New revision URL: $REVISION_URL"
+          echo "✅ New revision deployed with no traffic (tagged as '$REVISION_TAG')"
 
       # Step 2: Validate /health endpoint
       - name: Validate health endpoint on new revision
