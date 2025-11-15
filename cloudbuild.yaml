@@ -31,7 +31,7 @@ steps:
       - '--region=us-central1'
       - '--platform=managed'
       - '--allow-unauthenticated'
-      - '--max-instances=10'
+      - '--max-instances=1'
       - '--memory=512Mi'
       - '--cpu=1'
       - '--port=8080'
