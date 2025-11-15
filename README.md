@@ -302,70 +302,118 @@ See `.github/workflows/test.yml` for CI configuration and `tests/README.md` for 
 
 ### Local Development
 
-**Run the application locally:**
-```bash
-# Install dependencies
-pip install -r requirements.txt
+**Option 1: Run directly with Python**
 
-# Run the application
-python app/main.py
-```
+1. **Install dependencies:**
+   ```bash
+   pip install -r requirements.txt
+   ```
 
-The server will start at `http://localhost:8080`.
+2. **Run the application:**
+   ```bash
+   python app/main.py
+   ```
 
-**Or use Docker:**
-```bash
-docker build -t cambridge .
-docker run -p 8080:8080 cambridge
-```
+3. **The server starts at `http://localhost:8080`**
+
+4. **Test the health endpoint:**
+   ```bash
+   curl http://localhost:8080/health
+   # Expected: {"status":"healthy"}
+   ```
+
+5. **Test the webhook endpoint:**
+   ```bash
+   curl -X POST http://localhost:8080/api/v1/frameio/webhook \
+     -H "Content-Type: application/json" \
+     -d '{
+       "type": "file.created",
+       "resource": {
+         "id": "test-123",
+         "type": "file"
+       },
+       "account": {"id": "acc-123"},
+       "workspace": {"id": "ws-123"},
+       "project": {"id": "proj-123"},
+       "user": {"id": "user-123"}
+     }'
+   ```
+
+   Check your terminal - you should see the webhook payload logged to stdout.
+
+**Option 2: Run with Docker**
+
+1. **Build the image:**
+   ```bash
+   docker build -t cambridge .
+   ```
+
+2. **Run the container:**
+   ```bash
+   docker run -p 8080:8080 cambridge
+   ```
+
+3. **Test the endpoints** (same curl commands as above)
+
+**Option 3: Run with Docker Compose** (recommended for development)
+
+1. **Create `docker-compose.yml`:**
+   ```yaml
+   version: '3.8'
+   services:
+     app:
+       build: .
+       ports:
+         - "8080:8080"
+       volumes:
+         - ./app:/app/app  # Hot reload for development
+       environment:
+         - PYTHONUNBUFFERED=1
+   ```
+
+2. **Run:**
+   ```bash
+   docker-compose up
+   ```
+
+3. **Stop:**
+   ```bash
+   docker-compose down
+   ```
 
 ## Testing
 
-### Test the health endpoint:
+### Testing Locally
+
+See the "Local Development" section above for how to run and test the application locally.
+
+### Testing the Deployed Service
+
+**Test the health endpoint:**
 ```bash
 curl https://your-service-url.run.app/health
 ```
 
-### Test the webhook endpoint locally:
-```bash
-# Run locally
-docker build -t cambridge .
-docker run -p 8080:8080 cambridge
-
-# Send test webhook with Frame.io V4 payload structure
-curl -X POST http://localhost:8080/api/v1/frameio/webhook \
-    -H "Content-Type: application/json" \
-    -H "User-Agent: Frame.io V4 API" \
-    -d '{
-      "type": "file.created",
-      "resource": {
-        "id": "d3075547-4e64-45f0-ad12-d075660eddd2",
-        "type": "file"
-      },
-      "account": {"id": "6f70f1bd-7e89-4a7e-b4d3-7e576585a181"},
-      "workspace": {"id": "378fcbf7-6f88-4224-8139-6a743ed940b2"},
-      "project": {"id": "7e46e495-4444-4555-8649-bee4d391a997"},
-      "user": {"id": "56556a3f-859f-4b38-b6c6-e8625b5da8a5"}
-    }'
-```
-
-### Test the deployed webhook:
+**Test the webhook endpoint:**
+**Test the webhook endpoint:**
 ```bash
 curl -X POST https://your-service-url.run.app/api/v1/frameio/webhook \
-    -H "Content-Type: application/json" \
-    -H "User-Agent: Frame.io V4 API" \
-    -d '{
-      "type": "file.ready",
-      "resource": {
-        "id": "test-file-id",
-        "type": "file"
-      },
-      "account": {"id": "test-account-id"},
-      "workspace": {"id": "test-workspace-id"},
-      "project": {"id": "test-project-id"},
-      "user": {"id": "test-user-id"}
-    }'
+  -H "Content-Type: application/json" \
+  -H "User-Agent: Frame.io V4 API" \
+  -d '{
+    "type": "file.ready",
+    "resource": {
+      "id": "test-file-id",
+      "type": "file"
+    },
+    "account": {"id": "test-account-id"},
+    "workspace": {"id": "test-workspace-id"},
+    "project": {"id": "test-project-id"},
+    "user": {"id": "test-user-id"}
+  }'
 ```
+
+Then check the Cloud Run logs to see the webhook payload.
 
 ## Monitoring
 
