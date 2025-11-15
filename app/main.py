@@ -79,7 +79,7 @@ async def frameio_webhook(request: Request):
         user_id = payload.get("user", {}).get("id")
 
         # Log webhook data as structured JSON for Cloud Logging
-        # This creates a single log entry with jsonPayload and automatic trace correlation
+        # Single log entry with jsonPayload and automatic trace correlation
         log_data = {
             "message": "FRAME.IO WEBHOOK RECEIVED",
             "event_type": event_type,
