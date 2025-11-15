@@ -29,6 +29,49 @@ Frame.io → Webhook → Cloud Run Service → Logs to stdout → Cloud Logging
 
 ### 1. GCP Setup
 
+Choose either **Terraform (Recommended)** or **Manual gcloud** setup:
+
+#### Option A: Terraform Setup (Recommended)
+
+Terraform automates all GCP infrastructure setup.
+
+1. **Install Terraform:**
+   - Download from https://www.terraform.io/downloads
+   - Verify: `terraform --version`
+
+2. **Authenticate with GCP:**
+   ```bash
+   gcloud auth application-default login
+   ```
+
+3. **Configure Terraform:**
+   ```bash
+   cd terraform
+   cp terraform.tfvars.example terraform.tfvars
+   ```
+
+   Edit `terraform.tfvars`:
+   ```hcl
+   project_id = "your-gcp-project-id"
+   region     = "us-central1"
+   ```
+
+4. **Run Terraform:**
+   ```bash
+   terraform init
+   terraform plan
+   terraform apply
+   ```
+
+5. **Get service account key:**
+   ```bash
+   terraform output -raw github_actions_service_account_key | base64 -d > key.json
+   ```
+
+See [terraform/README.md](terraform/README.md) for detailed Terraform documentation.
+
+#### Option B: Manual gcloud Setup
+
 1. **Create or select a GCP project:**
    ```bash
    gcloud projects create your-project-id
@@ -373,10 +416,17 @@ gcloud alpha monitoring policies create \
 ├── .github/
 │   └── workflows/
 │       └── deploy.yml          # GitHub Actions CD workflow
+├── terraform/
+│   ├── main.tf                 # Terraform main configuration
+│   ├── variables.tf            # Terraform input variables
+│   ├── outputs.tf              # Terraform outputs
+│   ├── terraform.tfvars.example # Example Terraform variables
+│   └── README.md               # Terraform documentation
 ├── main.py                      # FastAPI application
 ├── requirements.txt             # Python dependencies
 ├── Dockerfile                   # Multi-stage Docker build
 ├── .dockerignore               # Docker build exclusions
+├── .gitignore                  # Git ignore rules
 ├── cloudbuild.yaml             # GCP Cloud Build config
 └── README.md                    # This file
 ```
