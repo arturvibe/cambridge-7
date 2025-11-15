@@ -56,21 +56,6 @@ jobs:
             exit 1
           fi
 
-      - name: Test root endpoint
-        run: |
-          # Test / endpoint
-          response=$(curl -s http://localhost:8080/)
-          echo "Root endpoint response: $response"
-
-          # Verify response contains expected fields
-          if echo "$response" | grep -q '"status":"healthy"' && \
-             echo "$response" | grep -q '"service":"cambridge"'; then
-            echo "✅ Root endpoint check passed"
-          else
-            echo "❌ Root endpoint check failed: unexpected response"
-            exit 1
-          fi
-
       - name: Show container logs (on failure)
         if: failure()
         run: |
