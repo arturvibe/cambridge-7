@@ -2,8 +2,9 @@
 # DO NOT commit terraform.tfvars to version control
 
 project_id = "your-gcp-project-id"
-region     = "us-central1"
+region     = "europe-west1"
 
 # Optional: Override defaults
-# github_actions_sa_name = "github-actions"
-# service_name           = "frameio-webhook"
+# github_actions_sa_name      = "github-actions"
+# service_name                = "frameio-webhook"
+# artifact_registry_repo_name = "frameio-webhook-repo"

@@ -6,7 +6,7 @@ variable "project_id" {
 variable "region" {
   description = "GCP region for resources"
   type        = string
-  default     = "us-central1"
+  default     = "europe-west1"
 }
 
 variable "github_actions_sa_name" {
@@ -19,4 +19,10 @@ variable "service_name" {
   description = "Cloud Run service name"
   type        = string
   default     = "frameio-webhook"
+}
+
+variable "artifact_registry_repo_name" {
+  description = "Artifact Registry repository name for Docker images"
+  type        = string
+  default     = "frameio-webhook-repo"
 }

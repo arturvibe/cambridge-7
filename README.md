@@ -27,11 +27,7 @@ Frame.io → Webhook → Cloud Run Service → Logs to stdout → Cloud Logging
 
 ## Setup
 
-### 1. GCP Setup
-
-Choose either **Terraform (Recommended)** or **Manual gcloud** setup:
-
-#### Option A: Terraform Setup (Recommended)
+### 1. GCP Setup with Terraform
 
 Terraform automates all GCP infrastructure setup.
 
@@ -53,7 +49,7 @@ Terraform automates all GCP infrastructure setup.
    Edit `terraform.tfvars`:
    ```hcl
    project_id = "your-gcp-project-id"
-   region     = "us-central1"
+   region     = "europe-west1"
    ```
 
 4. **Run Terraform:**
@@ -70,48 +66,6 @@ Terraform automates all GCP infrastructure setup.
 
 See [terraform/README.md](terraform/README.md) for detailed Terraform documentation.
 
-#### Option B: Manual gcloud Setup
-
-1. **Create or select a GCP project:**
-   ```bash
-   gcloud projects create your-project-id
-   gcloud config set project your-project-id
-   ```
-
-2. **Enable required APIs:**
-   ```bash
-   gcloud services enable cloudbuild.googleapis.com
-   gcloud services enable run.googleapis.com
-   gcloud services enable containerregistry.googleapis.com
-   ```
-
-3. **Create a service account for GitHub Actions:**
-   ```bash
-   gcloud iam service-accounts create github-actions \
-       --display-name="GitHub Actions"
-   ```
-
-4. **Grant necessary permissions:**
-   ```bash
-   gcloud projects add-iam-policy-binding your-project-id \
-       --member="serviceAccount:github-actions@your-project-id.iam.gserviceaccount.com" \
-       --role="roles/run.admin"
-
-   gcloud projects add-iam-policy-binding your-project-id \
-       --member="serviceAccount:github-actions@your-project-id.iam.gserviceaccount.com" \
-       --role="roles/storage.admin"
-
-   gcloud projects add-iam-policy-binding your-project-id \
-       --member="serviceAccount:github-actions@your-project-id.iam.gserviceaccount.com" \
-       --role="roles/iam.serviceAccountUser"
-   ```
-
-5. **Create and download service account key:**
-   ```bash
-   gcloud iam service-accounts keys create key.json \
-       --iam-account=github-actions@your-project-id.iam.gserviceaccount.com
-   ```
-
 ### 2. GitHub Setup
 
 1. **Add GitHub Secrets:**
@@ -122,13 +76,11 @@ See [terraform/README.md](terraform/README.md) for detailed Terraform documentat
 
 2. **Configure the workflow (if needed):**
    - Edit `.github/workflows/deploy.yml` if you want to change:
-     - Region (default: `us-central1`)
+     - Region (default: `europe-west1`)
      - Service name (default: `frameio-webhook`)
      - Memory/CPU allocations
 
-### 3. Deploy
-
-#### Option 1: Single-Click Deploy (GitHub Actions)
+### 3. Deploy via GitHub Actions
 
 1. Go to your GitHub repository
 2. Click on "Actions" tab
@@ -137,37 +89,6 @@ See [terraform/README.md](terraform/README.md) for detailed Terraform documentat
 5. Wait for deployment to complete
 6. The service URL will be displayed in the workflow logs
 
-#### Option 2: Manual Deploy with gcloud
-
-```bash
-# Build and deploy
-gcloud builds submit --config cloudbuild.yaml
-
-# Or deploy directly
-gcloud run deploy frameio-webhook \
-    --source . \
-    --platform managed \
-    --region us-central1 \
-    --allow-unauthenticated
-```
-
-#### Option 3: Local Docker Build and Deploy
-
-```bash
-# Build the image
-docker build -t gcr.io/your-project-id/frameio-webhook:latest .
-
-# Push to GCR
-docker push gcr.io/your-project-id/frameio-webhook:latest
-
-# Deploy to Cloud Run
-gcloud run deploy frameio-webhook \
-    --image gcr.io/your-project-id/frameio-webhook:latest \
-    --platform managed \
-    --region us-central1 \
-    --allow-unauthenticated
-```
-
 ## Configure Frame.io Webhook
 
 ### Step 1: Get your Cloud Run service URL
@@ -175,7 +96,7 @@ gcloud run deploy frameio-webhook \
 ```bash
 gcloud run services describe frameio-webhook \
     --platform managed \
-    --region us-central1 \
+    --region europe-west1 \
     --format 'value(status.url)'
 ```
 
@@ -391,7 +312,7 @@ curl -X POST https://your-service-url.run.app/api/v1/frameio/webhook \
 ```bash
 gcloud run services describe frameio-webhook \
     --platform managed \
-    --region us-central1
+    --region europe-west1
 ```
 
 ### Check Metrics:

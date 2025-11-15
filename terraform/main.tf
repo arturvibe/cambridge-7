@@ -22,20 +22,6 @@ resource "google_project_service" "cloud_run" {
   disable_on_destroy = false
 }
 
-resource "google_project_service" "cloud_build" {
-  project = var.project_id
-  service = "cloudbuild.googleapis.com"
-
-  disable_on_destroy = false
-}
-
-resource "google_project_service" "container_registry" {
-  project = var.project_id
-  service = "containerregistry.googleapis.com"
-
-  disable_on_destroy = false
-}
-
 resource "google_project_service" "artifact_registry" {
   project = var.project_id
   service = "artifactregistry.googleapis.com"
@@ -48,6 +34,17 @@ resource "google_project_service" "iam" {
   service = "iam.googleapis.com"
 
   disable_on_destroy = false
+}
+
+# Create Artifact Registry repository for Docker images
+resource "google_artifact_registry_repository" "docker_repo" {
+  location      = var.region
+  repository_id = var.artifact_registry_repo_name
+  description   = "Docker repository for Frame.io webhook application"
+  format        = "DOCKER"
+  project       = var.project_id
+
+  depends_on = [google_project_service.artifact_registry]
 }
 
 # Service account for GitHub Actions
@@ -69,9 +66,9 @@ resource "google_project_iam_member" "github_actions_run_admin" {
   depends_on = [google_service_account.github_actions]
 }
 
-resource "google_project_iam_member" "github_actions_storage_admin" {
+resource "google_project_iam_member" "github_actions_artifact_registry_writer" {
   project = var.project_id
-  role    = "roles/storage.admin"
+  role    = "roles/artifactregistry.writer"
   member  = "serviceAccount:${google_service_account.github_actions.email}"
 
   depends_on = [google_service_account.github_actions]
@@ -91,7 +88,7 @@ resource "google_service_account_key" "github_actions_key" {
 
   depends_on = [
     google_project_iam_member.github_actions_run_admin,
-    google_project_iam_member.github_actions_storage_admin,
+    google_project_iam_member.github_actions_artifact_registry_writer,
     google_project_iam_member.github_actions_service_account_user
   ]
 }
@@ -106,7 +103,7 @@ resource "google_service_account_key" "github_actions_key" {
 #   template {
 #     spec {
 #       containers {
-#         image = "gcr.io/${var.project_id}/${var.service_name}:latest"
+#         image = "${var.region}-docker.pkg.dev/${var.project_id}/${var.artifact_registry_repo_name}/${var.service_name}:latest"
 #
 #         ports {
 #           container_port = 8080
@@ -136,7 +133,10 @@ resource "google_service_account_key" "github_actions_key" {
 #     latest_revision = true
 #   }
 #
-#   depends_on = [google_project_service.cloud_run]
+#   depends_on = [
+#     google_project_service.cloud_run,
+#     google_artifact_registry_repository.docker_repo
+#   ]
 # }
 #
 # # Allow unauthenticated access to Cloud Run service

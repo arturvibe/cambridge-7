@@ -28,11 +28,24 @@ output "enabled_apis" {
   description = "List of enabled GCP APIs"
   value = [
     google_project_service.cloud_run.service,
-    google_project_service.cloud_build.service,
-    google_project_service.container_registry.service,
     google_project_service.artifact_registry.service,
     google_project_service.iam.service,
   ]
+}
+
+output "artifact_registry_repository" {
+  description = "Artifact Registry repository name"
+  value       = google_artifact_registry_repository.docker_repo.name
+}
+
+output "artifact_registry_repository_url" {
+  description = "Artifact Registry repository URL for Docker images"
+  value       = "${var.region}-docker.pkg.dev/${var.project_id}/${var.artifact_registry_repo_name}"
+}
+
+output "docker_image_base_url" {
+  description = "Base URL for Docker images (use this in your CI/CD)"
+  value       = "${var.region}-docker.pkg.dev/${var.project_id}/${var.artifact_registry_repo_name}/${var.service_name}"
 }
 
 # Uncomment if managing Cloud Run service with Terraform
