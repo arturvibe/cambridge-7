@@ -45,6 +45,31 @@ resource "google_artifact_registry_repository" "docker_repo" {
   project       = var.project_id
 
   depends_on = [google_project_service.artifact_registry]
+
+  cleanup_policies {
+    id     = "keep-latest-seven"
+    action = "KEEP"
+    most_recent_versions {
+      keep_count = 7
+    }
+  }
+
+  cleanup_policies {
+    id     = "keep-deployed"
+    action = "KEEP"
+    condition {
+      tag_state    = "TAGGED"
+      tag_prefixes = ["deployed"]
+    }
+  }
+
+  cleanup_policies {
+    id     = "delete-untagged-and-non-deployed"
+    action = "DELETE"
+    condition {
+      older_than = "0s"
+    }
+  }
 }
 
 # Service account for GitHub Actions
