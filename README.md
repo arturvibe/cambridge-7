@@ -395,7 +395,6 @@ curl https://your-service-url.run.app/health
 ```
 
 **Test the webhook endpoint:**
-**Test the webhook endpoint:**
 ```bash
 curl -X POST https://your-service-url.run.app/api/v1/frameio/webhook \
   -H "Content-Type: application/json" \
