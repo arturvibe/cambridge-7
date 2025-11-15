@@ -35,7 +35,7 @@ docker build -t cambridge . && docker run -p 8080:8080 cambridge
 
 ## Conventions
 
-### Commits (ENFORCED)
+### Commits & PR Titles (ENFORCED)
 **Format:** `type: subject` (max 100 chars, lowercase type)
 
 **Types:** `feat` `fix` `docs` `style` `refactor` `perf` `test` `build` `ci` `chore` `revert`
@@ -44,6 +44,8 @@ Examples:
 - `feat: add file.ready webhook support`
 - `fix: handle missing workspace_id`
 - `test: add large payload tests`
+
+**Note:** PR titles must follow the same format as commit messages
 
 ### Code Style
 - **Format:** black (88 char line length)
