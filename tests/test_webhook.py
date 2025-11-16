@@ -22,21 +22,24 @@ class TestFrameIOWebhook:
 
     def test_webhook_logs_payload(self, sample_frameio_payload, caplog):
         """Test webhook logs the payload information."""
-        with caplog.at_level("INFO"):
-            response = client.post(
-                "/api/v1/frameio/webhook",
-                json=sample_frameio_payload,
-                headers={"Content-Type": "application/json"},
-            )
-
+        response = client.post(
+            "/api/v1/frameio/webhook",
+            json=sample_frameio_payload,
+            headers={"Content-Type": "application/json"},
+        )
         assert response.status_code == 200
 
-        # Check that important information was logged as structured JSON
-        log_text = caplog.text
-        assert "FRAME.IO WEBHOOK RECEIVED" in log_text
-        assert '"event_type": "resource.asset_created"' in log_text
-        assert '"resource_type": "asset"' in log_text
-        assert '"resource_id": "abc-123-def-456"' in log_text
+        # Find the relevant log record
+        log_record = None
+        for record in caplog.records:
+            if record.message == "FRAME.IO WEBHOOK RECEIVED":
+                log_record = record
+                break
+
+        assert log_record is not None
+        assert log_record.extra_fields["event_type"] == "resource.asset_created"
+        assert log_record.extra_fields["resource_type"] == "asset"
+        assert log_record.extra_fields["resource_id"] == "abc-123-def-456"
 
     def test_webhook_handles_minimal_payload(self):
         """Test webhook handles payload with all required fields."""
@@ -76,20 +79,23 @@ class TestFrameIOWebhook:
 
     def test_webhook_extracts_all_frameio_fields(self, sample_frameio_payload, caplog):
         """Test webhook extracts all Frame.io V4 fields (logged)."""
-        with caplog.at_level("INFO"):
-            response = client.post(
-                "/api/v1/frameio/webhook",
-                json=sample_frameio_payload,
-                headers={"Content-Type": "application/json"},
-            )
-
+        response = client.post(
+            "/api/v1/frameio/webhook",
+            json=sample_frameio_payload,
+            headers={"Content-Type": "application/json"},
+        )
         assert response.status_code == 200
 
-        # Verify fields were logged in structured JSON
-        log_text = caplog.text
-        assert "resource.asset_created" in log_text
-        assert "asset" in log_text
-        assert "abc-123-def-456" in log_text
+        log_record = None
+        for record in caplog.records:
+            if record.message == "FRAME.IO WEBHOOK RECEIVED":
+                log_record = record
+                break
+
+        assert log_record is not None
+        assert log_record.extra_fields["event_type"] == "resource.asset_created"
+        assert log_record.extra_fields["resource_type"] == "asset"
+        assert log_record.extra_fields["resource_id"] == "abc-123-def-456"
 
     def test_webhook_response_structure(self, sample_frameio_payload):
         """Test webhook response has correct structure."""
