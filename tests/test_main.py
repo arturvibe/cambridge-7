@@ -12,7 +12,6 @@ from fastapi.testclient import TestClient
 # Mock Pub/Sub before importing app
 with patch.dict(os.environ, {"GCP_PROJECT_ID": "test-project"}):
     from app.main import app, get_event_publisher
-    from app.core.services import WebhookService
 
 # Create a single mock publisher for all tests
 mock_event_publisher = MagicMock()

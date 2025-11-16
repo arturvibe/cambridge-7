@@ -16,12 +16,12 @@ from app.logging_config import setup_global_logging
 setup_global_logging()
 
 # Now import other modules (they will use the configured logging)
-from fastapi import Depends, FastAPI
+from fastapi import Depends, FastAPI  # noqa: E402
 
-from app.api import frameio
-from app.api.frameio import get_webhook_service_dependency
-from app.core.services import WebhookService
-from app.infrastructure.pubsub_publisher import GooglePubSubPublisher
+from app.api import frameio  # noqa: E402
+from app.api.frameio import get_webhook_service_dependency  # noqa: E402
+from app.core.services import WebhookService  # noqa: E402
+from app.infrastructure.pubsub_publisher import GooglePubSubPublisher  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
