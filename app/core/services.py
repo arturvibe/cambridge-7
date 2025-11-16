@@ -70,7 +70,7 @@ class FrameioWebhookService:
             "payload": event.to_dict(),
         }
         logger.info(
-            "FRAME.IO WEBHOOK RECEIVED",
+            "frame.io webhook received",
             extra={"extra_fields": log_extra},
         )
 
