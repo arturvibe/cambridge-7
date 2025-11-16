@@ -30,6 +30,7 @@ output "enabled_apis" {
     google_project_service.cloud_run.service,
     google_project_service.artifact_registry.service,
     google_project_service.iam.service,
+    google_project_service.pubsub.service,
   ]
 }
 
@@ -46,6 +47,21 @@ output "artifact_registry_repository_url" {
 output "docker_image_base_url" {
   description = "Base URL for Docker images (use this in your CI/CD)"
   value       = "${var.region}-docker.pkg.dev/${var.project_id}/${var.artifact_registry_repo_name}/${var.service_name}"
+}
+
+output "pubsub_topic_name" {
+  description = "Name of the Pub/Sub topic for Frame.io webhooks"
+  value       = google_pubsub_topic.frameio_webhooks.name
+}
+
+output "pubsub_subscription_name" {
+  description = "Name of the Pub/Sub subscription for debugging/testing"
+  value       = google_pubsub_subscription.frameio_webhooks_debug_sub.name
+}
+
+output "cloud_run_service_account_email" {
+  description = "Email of the Cloud Run service account"
+  value       = google_service_account.cloud_run.email
 }
 
 # Uncomment if managing Cloud Run service with Terraform

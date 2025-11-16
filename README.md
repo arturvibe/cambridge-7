@@ -1,24 +1,30 @@
 # Frame.io Webhook Receiver for GCP Cloud Run
 
-A FastAPI application that receives Frame.io webhooks and logs payloads to stdout for easy inspection via GCP Cloud Run logs.
+A FastAPI application that receives Frame.io webhooks, publishes events to Pub/Sub, and logs payloads for monitoring via Cloud Logging.
 
 ## Features
 
-- FastAPI endpoint at `/api/v1/frameio/webhook` to receive Frame.io V4 webhooks
-- Parses and logs Frame.io-specific payload structure (event type, resource details, account/workspace/project IDs)
-- Logs complete webhook payloads (headers + body) to stdout
-- Docker containerized with Multi-Stage Builds for optimal image size
-- Ready to deploy on GCP Cloud Run
-- Single-click CD via GitHub Actions
-- Health check endpoints for monitoring
-- Comprehensive unit tests with 90% code coverage
-- Conventional Commits enforcement via CI
+- **Webhook Reception**: FastAPI endpoint at `/api/v1/frameio/webhook` for Frame.io V4 webhooks
+- **Event Publishing**: Publishes webhook events to Google Cloud Pub/Sub for downstream processing
+- **Structured Logging**: Logs complete webhook payloads with structured JSON for Cloud Logging
+- **Hexagonal Architecture**: Clean separation between API, domain logic, and infrastructure
+- **Local Development**: Docker Compose setup with Pub/Sub emulator
+- **Production Ready**: Deployed on GCP Cloud Run with blue-green deployment
+- **Well Tested**: 27 tests with 88% code coverage
+- **CI/CD**: GitHub Actions for automated testing and deployment
 
 ## Architecture
 
 ```
-Frame.io → Webhook → Cloud Run Service → Logs to stdout → Cloud Logging
+Frame.io → Webhook → Cloud Run Service → Pub/Sub Topic → Subscribers
+                              ↓
+                        Cloud Logging
 ```
+
+**Hexagonal Architecture:**
+- `app/core/` - Domain models and business logic
+- `app/api/` - HTTP endpoints (FastAPI)
+- `app/infrastructure/` - Pub/Sub publisher implementation
 
 ## Prerequisites
 
@@ -262,39 +268,21 @@ gcloud logging sinks create cambridges-sink \
 
 ### Running Unit Tests
 
-The application includes a comprehensive test suite with 90% code coverage.
-
-**Install development dependencies:**
+**Install dependencies and run tests:**
 ```bash
 pip install -r requirements-dev.txt
+pytest  # 27 tests, 88% coverage
 ```
 
-**Run all tests:**
-```bash
-pytest
-```
-
-**Run tests with coverage report:**
+**With coverage report:**
 ```bash
 pytest --cov=app --cov-report=term-missing
 ```
 
-**Run tests with HTML coverage report:**
+**Run specific test files:**
 ```bash
-pytest --cov=app --cov-report=html
-# Open htmlcov/index.html in your browser
-```
-
-**Run specific tests:**
-```bash
-# Run tests for health endpoints
-pytest tests/test_main.py::TestHealthEndpoints
-
-# Run tests for webhook functionality
-pytest tests/test_main.py::TestFrameIOWebhook
-
-# Run tests matching a keyword
-pytest -k "webhook"
+pytest tests/test_webhook.py      # Webhook endpoint tests
+pytest tests/test_pubsub_integration.py  # Pub/Sub tests
 ```
 
 ### Continuous Integration
@@ -308,58 +296,70 @@ See `.github/workflows/test.yml` for CI configuration and `tests/README.md` for 
 
 ### Local Development
 
-**Option 1: Run directly with Python**
+**Option 1: Run with Docker Compose (Recommended)**
+
+Runs the app with Pub/Sub emulator for full local testing:
+
+```bash
+docker-compose up
+```
+
+This starts:
+- Pub/Sub emulator on port 8085
+- Cambridge app on `http://localhost:8080`
+- Auto-creates topic (`frameio-events`) and debug subscription (`frameio-events-debug-sub`)
+
+**Test the webhook:**
+```bash
+curl -X POST http://localhost:8080/api/v1/frameio/webhook \
+  -H "Content-Type: application/json" \
+  -d '{
+    "type": "file.created",
+    "resource": {"id": "test-123", "type": "file"},
+    "account": {"id": "acc-123"},
+    "workspace": {"id": "ws-123"},
+    "project": {"id": "proj-123"},
+    "user": {"id": "user-123"}
+  }'
+```
+
+**Pull Pub/Sub messages (local):**
+```bash
+python scripts/pull-pubsub-messages.py
+```
+
+**Pull Pub/Sub messages (production):**
+```bash
+gcloud pubsub subscriptions pull frameio-events-debug-sub --limit=10 --auto-ack
+```
+
+**Option 2: Run directly with Python**
 
 1. **Install dependencies:**
    ```bash
    pip install -r requirements.txt
    ```
 
-2. **Run the application:**
+2. **Set environment variables:**
+   ```bash
+   export GCP_PROJECT_ID=test-project
+   export PUBSUB_TOPIC_NAME=frameio-events
+   ```
+
+3. **Run the application:**
    ```bash
    python app/main.py
    ```
 
-3. **The server starts at `http://localhost:8080`**
+**Option 3: Run with Docker**
 
-4. **Test the health endpoint:**
-   ```bash
-   curl http://localhost:8080/health
-   # Expected: {"status":"healthy"}
-   ```
-
-5. **Test the webhook endpoint:**
-   ```bash
-   curl -X POST http://localhost:8080/api/v1/frameio/webhook \
-     -H "Content-Type: application/json" \
-     -d '{
-       "type": "file.created",
-       "resource": {
-         "id": "test-123",
-         "type": "file"
-       },
-       "account": {"id": "acc-123"},
-       "workspace": {"id": "ws-123"},
-       "project": {"id": "proj-123"},
-       "user": {"id": "user-123"}
-     }'
-   ```
-
-   Check your terminal - you should see the webhook payload logged to stdout.
-
-**Option 2: Run with Docker**
-
-1. **Build the image:**
-   ```bash
-   docker build -t cambridge .
-   ```
-
-2. **Run the container:**
-   ```bash
-   docker run -p 8080:8080 cambridge
-   ```
-
-3. **Test the endpoints** (same curl commands as above)
+```bash
+docker build -t cambridge .
+docker run -p 8080:8080 \
+  -e GCP_PROJECT_ID=test-project \
+  -e PUBSUB_TOPIC_NAME=frameio-events \
+  cambridge
+```
 
 ## Testing
 
@@ -418,54 +418,6 @@ gcloud alpha monitoring policies create \
     --condition-threshold-duration=60s
 ```
 
-## Project Structure
-
-```
-.
-├── .github/
-│   └── workflows/
-│       ├── deploy.yml          # GitHub Actions CD workflow
-│       └── test.yml            # GitHub Actions test workflow
-├── app/
-│   └── main.py                 # FastAPI application
-├── tests/
-│   ├── __init__.py             # Test package marker
-│   ├── test_main.py            # Unit tests for main application
-│   └── README.md               # Testing documentation
-├── terraform/
-│   ├── main.tf                 # Terraform main configuration
-│   ├── variables.tf            # Terraform input variables
-│   ├── outputs.tf              # Terraform outputs
-│   ├── terraform.tfvars.example # Example Terraform variables
-│   └── README.md               # Terraform documentation
-├── requirements.txt             # Python dependencies
-├── requirements-dev.txt         # Development and testing dependencies
-├── pytest.ini                   # Pytest configuration
-├── Dockerfile                   # Multi-stage Docker build
-├── .dockerignore               # Docker build exclusions
-├── .gitignore                  # Git ignore rules
-├── .commitlintrc.json          # Commitlint configuration
-└── README.md                    # This file
-```
-
-## Troubleshooting
-
-### Deployment fails:
-- Check GitHub Actions logs for detailed error messages
-- Verify GCP service account has correct permissions
-- Ensure all required GCP APIs are enabled
-
-### Webhooks not appearing in logs:
-- Verify Frame.io webhook is configured correctly
-- Check Cloud Run service is publicly accessible
-- Test endpoint manually with curl
-- Check Cloud Run logs for any errors
-
-### Service not starting:
-- Check Dockerfile and requirements.txt for errors
-- Verify PORT environment variable is handled correctly
-- Check Cloud Run logs for startup errors
-
 ## Security Considerations
 
 - The service is deployed with `--allow-unauthenticated` for webhook reception (required for Frame.io to send webhooks)
@@ -481,14 +433,3 @@ gcloud alpha monitoring policies create \
 - 512Mi memory and 1 CPU should handle most webhook workloads
 - **Max instances set to 1** to minimize costs (webhooks are processed sequentially)
 - Service scales to zero when not receiving webhooks (no idle costs)
-
-## License
-
-MIT
-
-## Support
-
-For issues or questions:
-- Check GCP Cloud Run documentation
-- Review Frame.io webhook documentation
-- Check application logs in Cloud Logging

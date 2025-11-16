@@ -1,0 +1,59 @@
+services:
+  # Google Cloud Pub/Sub Emulator
+  pubsub-emulator:
+    image: gcr.io/google.com/cloudsdktool/cloud-sdk:emulators
+    command: gcloud beta emulators pubsub start --host-port=0.0.0.0:8085 --project=cambridge-local
+    ports:
+      - "8085:8085"
+    environment:
+      - PUBSUB_PROJECT_ID=cambridge-local
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8085"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # Initialize Pub/Sub topic and subscription
+  pubsub-init:
+    image: curlimages/curl:latest
+    environment:
+      - PUBSUB_EMULATOR_HOST=pubsub-emulator:8085
+      - GCP_PROJECT_ID=cambridge-local
+      - PUBSUB_TOPIC_NAME=frameio-events
+      - PUBSUB_SUBSCRIPTION_NAME=frameio-events-debug-sub
+    depends_on:
+      pubsub-emulator:
+        condition: service_healthy
+    command: >
+      sh -c '
+        echo "Waiting for emulator to be fully ready..." &&
+        sleep 2 &&
+        echo "Creating topic: $${PUBSUB_TOPIC_NAME}" &&
+        curl -s -X PUT "http://$${PUBSUB_EMULATOR_HOST}/v1/projects/$${GCP_PROJECT_ID}/topics/$${PUBSUB_TOPIC_NAME}" \
+          -H "Content-Type: application/json" \
+          -d "{}" &&
+        echo "" &&
+        echo "Creating subscription: $${PUBSUB_SUBSCRIPTION_NAME}" &&
+        curl -s -X PUT "http://$${PUBSUB_EMULATOR_HOST}/v1/projects/$${GCP_PROJECT_ID}/subscriptions/$${PUBSUB_SUBSCRIPTION_NAME}" \
+          -H "Content-Type: application/json" \
+          -d "{\"topic\": \"projects/$${GCP_PROJECT_ID}/topics/$${PUBSUB_TOPIC_NAME}\"}" &&
+        echo "" &&
+        echo "Pub/Sub setup complete!"
+      '
+
+  # Cambridge application
+  cambridge:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      - PUBSUB_EMULATOR_HOST=pubsub-emulator:8085
+      - GCP_PROJECT_ID=cambridge-local
+      - PUBSUB_TOPIC_NAME=frameio-events
+    depends_on:
+      pubsub-emulator:
+        condition: service_healthy
+      pubsub-init:
+        condition: service_completed_successfully
+    volumes:
+      - ./app:/app/app:ro

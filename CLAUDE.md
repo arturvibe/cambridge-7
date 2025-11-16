@@ -1,20 +1,60 @@
 # CLAUDE.md - AI Assistant Guide
 
-FastAPI webhook receiver for Frame.io V4 → logs payloads to GCP Cloud Run → viewable via Cloud Logging.
+FastAPI webhook receiver for Frame.io V4 → logs payloads to GCP Cloud Run → publishes to Pub/Sub → viewable via Cloud Logging.
 
-**Stack:** Python 3.11 • FastAPI 0.109.0 • google-cloud-logging • Docker • GCP Cloud Run • Terraform
+**Stack:** Python 3.11 • FastAPI 0.109.0 • Pydantic v2 • google-cloud-logging • google-cloud-pubsub • Docker • GCP Cloud Run • Terraform
 
-**Flow:** `Frame.io → /api/v1/frameio/webhook → stdout → Cloud Logging`
+**Flow:** `Frame.io → /api/v1/frameio/webhook → [Validate → Log → Publish to Pub/Sub] → Cloud Logging`
+
+## Architecture
+
+**Hexagonal Architecture (Ports & Adapters):**
+```
+┌─────────────────────────────────────────┐
+│ Driving Adapters (app/api/)             │
+│ - frameio.py: HTTP endpoint (dumb)      │
+└─────────────────┬───────────────────────┘
+                  ↓
+┌─────────────────────────────────────────┐
+│ Core Domain (app/core/)                 │
+│ - domain.py: FrameIOEvent model         │
+│ - services.py: Business logic (smart)   │
+│ - ports.py: EventPublisher interface    │
+│ - exceptions.py: Domain exceptions      │
+└─────────────────┬───────────────────────┘
+                  ↓
+┌─────────────────────────────────────────┐
+│ Driven Adapters (app/infrastructure/)   │
+│ - pubsub_publisher.py: Pub/Sub impl     │
+└─────────────────────────────────────────┘
+```
+
+**Separation of Concerns:**
+- **Adapters** (API/Infrastructure): HTTP ↔ Python translation, serialization
+- **Core Domain**: Pure business logic, domain models, ports (interfaces)
+- **Exception Handling**: Centralized in `app/main.py` (no try-except in adapters!)
 
 ## Structure
 
 **Core files:**
-- `app/main.py` - FastAPI app (126 lines)
+- `app/main.py` - FastAPI app wiring, dependency injection, centralized exception handlers
+- `app/api/frameio.py` - HTTP endpoint (dumb adapter, delegates to service)
+- `app/core/domain.py` - FrameIOEvent domain model (Pydantic v2)
+- `app/core/services.py` - Business logic (logging, publishing, validation)
+- `app/core/ports.py` - EventPublisher port (interface)
+- `app/core/exceptions.py` - Domain exceptions (PublisherError, InvalidWebhookError)
+- `app/infrastructure/pubsub_publisher.py` - Pub/Sub implementation
 - `app/logging_config.py` - Logging configuration with Cloud Run detection
-- `tests/test_main.py` - Unit tests (90%+ coverage)
+- `tests/test_webhook.py` - Webhook endpoint tests
+- `tests/test_pubsub_integration.py` - Pub/Sub integration tests
+- `tests/test_pubsub_publisher.py` - Publisher unit tests (90%+ coverage)
+- `tests/test_health.py` - Health endpoint tests
+- `tests/test_security.py` - Security and edge case tests
+- `tests/test_lifecycle.py` - Application lifecycle tests
 - `Dockerfile` - Multi-stage build
 - `.github/workflows/` - CI/CD (commitlint, test, deploy)
-- `terraform/` - GCP infrastructure as code
+- `terraform/` - GCP infrastructure as code (includes Pub/Sub topic/subscription)
+- `docker-compose.yml` - Local dev environment with Pub/Sub emulator
 
 ## Development
 
@@ -23,8 +63,8 @@ FastAPI webhook receiver for Frame.io V4 → logs payloads to GCP Cloud Run → 
 pip install -r requirements-dev.txt
 pre-commit install  # Install git hooks for auto-formatting
 
-# Run locally
-python app/main.py  # http://localhost:8080
+# Run locally with Pub/Sub emulator (recommended)
+docker-compose up  # Starts emulator, sets up topics, and runs app at http://localhost:8080
 
 # Test
 pytest --cov=app --cov-report=term-missing  # Must maintain 90%+ coverage
@@ -62,22 +102,40 @@ Examples:
 ### Code Style
 - **Format:** black (88 char line length)
 - **Lint:** flake8, mypy
-- **FastAPI:** async/await, JSONResponse, type hints, docstrings
+- **FastAPI:**
+  - async/await, JSONResponse, type hints, docstrings
+  - Pydantic v2 models with `ConfigDict` (not deprecated `class Config`)
+  - Modern `lifespan` context manager (not deprecated `on_event`)
+  - Centralized exception handlers (no try-except in endpoints!)
+- **Architecture:**
+  - Dumb adapters: Just translate HTTP ↔ Python, delegate to service
+  - Smart services: All business logic (logging, validation, publishing)
+  - Domain objects: Pass FrameIOEvent to infrastructure (not dicts!)
+  - Serialization: Infrastructure concern (adapters handle JSON conversion)
 - **Logging:**
   - Config: `app/logging_config.py` with `setup_global_logging()`
   - Cloud Run: google-cloud-logging with trace correlation (detected via K_SERVICE env var)
   - Local/Test: Standard Python logging to stdout
-  - Structured JSON: Single log entry per webhook (see app/main.py:81-100)
-- **Tests:** 90%+ coverage, Test* classes, descriptive names, fixtures
-
-## Architecture
+  - Structured JSON: Single log entry per webhook (see app/core/services.py:60-78)
+- **Tests:** 90%+ coverage, Test* classes, descriptive names, fixtures, test contracts not implementation
 
 **Endpoints:**
 - `GET /` - Health check with service info
 - `GET /health` - Simple health check
-- `POST /api/v1/frameio/webhook` - Receives Frame.io webhooks, logs payload, returns 200
+- `POST /api/v1/frameio/webhook` - Receives Frame.io webhooks, validates, logs, publishes to Pub/Sub
+
+**HTTP Status Codes:**
+- `200 OK` - Event successfully published, returns `{"message_id": "..."}`
+- `422 Unprocessable Entity` - Invalid JSON or missing required fields (client error, do not retry)
+- `500 Internal Server Error` - Pub/Sub publishing failed (server error, Frame.io retries)
 
 **Frame.io payload:** `{type, resource: {type, id}, account: {id}, workspace: {id}, project: {id}, user: {id}}`
+
+**Error Handling:**
+- Centralized in `app/main.py` using `@app.exception_handler()`
+- `PublisherError` → 500 (Pub/Sub failures, Frame.io retries)
+- `RequestValidationError` → 422 (Invalid payload, Frame.io does not retry)
+- No try-except in endpoints or adapters!
 
 **Docker:** Multi-stage build → non-root user (appuser) → PYTHONUNBUFFERED=1 for Cloud Run
 
@@ -85,8 +143,13 @@ Examples:
 - Service: `cambridge` (europe-west1, 512Mi, 1 CPU, max 1 instance)
 - Artifact Registry for images (tags: `<short-sha>`, `latest`, `deployed-<timestamp>`)
   - Cleanup policy: keeps 7 most recent versions
-- Service account for GitHub Actions
+- Pub/Sub topic: `frameio-events` (for webhook event distribution)
+- Pub/Sub subscription: `frameio-events-debug-sub` (7-day retention, for testing/debugging)
+- Service accounts:
+  - GitHub Actions (CI/CD deployment)
+  - Cloud Run (Pub/Sub publisher role)
 - Unauthenticated access (required for webhooks)
+- Enabled APIs: Cloud Run, Artifact Registry, IAM, Pub/Sub
 
 **Logging Architecture:**
 - **Environment Detection:** `app/logging_config.py` checks `K_SERVICE` env var
@@ -94,6 +157,13 @@ Examples:
 - **Local/Test Mode:** Falls back to standard Python logging to stdout
 - **Structured Logging:** Webhooks logged as single JSON object with all fields in `jsonPayload`
 - **Benefits:** Request trace grouping in GCP Console, queryable log fields, single-line log entries
+
+**Pub/Sub Architecture:**
+- **Client:** `app/pubsub_client.py` (auto-detects emulator via `PUBSUB_EMULATOR_HOST`)
+- **Publishing:** Webhook payloads published to `frameio-events` topic with attributes (event_type, resource_type, resource_id)
+- **Error Handling:** Pub/Sub failures don't affect webhook response (logged but not returned as errors)
+- **Local Development:** `docker-compose up` automatically starts emulator and creates topic/subscription
+- **Production:** Uses Cloud Run service account with `roles/pubsub.publisher`
 
 ## Workflow
 
@@ -104,10 +174,12 @@ Examples:
 4. Before commit: `black app/ tests/` + verify commit format
 
 **Common tasks:**
-- Add webhook field: Extract in app/main.py:72-79 → Log at :83-97 → Add tests
-- Change Cloud Run config: Edit `.github/workflows/deploy.yml:48-59`
+- Add webhook field: Extract in app/main.py → Log + Publish to Pub/Sub → Add tests
+- Change Cloud Run config: Edit `.github/workflows/deploy.yml:59-78` (env vars, flags, service account)
 - Add endpoint: app/main.py + tests/test_main.py + README + maintain 90% coverage
 - Modify logging: Edit `app/logging_config.py` (K_SERVICE detection for Cloud Run)
+- Modify Pub/Sub: Edit `app/pubsub_client.py` + update tests in tests/test_pubsub_client.py
+- Add Pub/Sub consumer: Create new service + subscribe to `frameio-events` topic (or use `frameio-events-debug-sub` for testing)
 
 **GitHub Actions best practices:**
 - Use `pull_request` trigger only for PR checks (not both `push` and `pull_request`)
@@ -142,9 +214,18 @@ gcloud logging tail "resource.type=cloud_run_revision AND resource.labels.servic
 # View deployed image in Artifact Registry
 gcloud artifacts docker tags list europe-west1-docker.pkg.dev/$PROJECT_ID/cambridge-repo/cambridge
 
+# Pub/Sub (local testing with emulator)
+docker-compose up                            # Start app + Pub/Sub emulator (auto-creates topics)
+python scripts/pull-pubsub-messages.py      # Pull messages from frameio-events-debug-sub
+
+# Pub/Sub (production)
+gcloud pubsub subscriptions pull frameio-events-debug-sub --limit=10 --auto-ack
+gcloud pubsub topics publish frameio-events --message='{"test": "message"}'
+
 # Terraform
 cd terraform && terraform init && terraform apply
 terraform output -raw github_actions_service_account_key | base64 -d > key.json
+terraform output pubsub_topic_name          # View Pub/Sub topic name
 ```
 
 ## Deployment
@@ -160,6 +241,12 @@ terraform output -raw github_actions_service_account_key | base64 -d > key.json
 4. **Tag image:** Successfully deployed image tagged with `deployed-<timestamp>` in Artifact Registry
 5. **Rollback:** If validation fails, deployment aborts (old revision keeps serving traffic)
 
+**Environment Variables (Cloud Run):**
+- `GCP_PROJECT_ID` - GCP project ID (required)
+- `PUBSUB_TOPIC_NAME` - Pub/Sub topic name (required)
+- `PUBSUB_EMULATOR_HOST` - Pub/Sub emulator host (local dev only, e.g., `localhost:8085`)
+- `K_SERVICE` - Auto-set by Cloud Run (triggers structured logging)
+
 ## Frame.io Integration
 
 **Events:** `file.created`, `file.ready`, `file.upload.completed`, `comment.created`
@@ -171,9 +258,12 @@ terraform output -raw github_actions_service_account_key | base64 -d > key.json
 **Cost:** Max 1 instance, scales to zero, 512Mi/1CPU, 2M requests/month free
 
 **Troubleshooting:**
-- Tests fail → Check Python 3.11, deps installed
+- Tests fail → Check Python 3.11, deps installed (pip install -r requirements-dev.txt)
 - Deploy fails → Verify GitHub secrets (GCP_PROJECT_ID, GCP_SA_KEY)
 - No webhook logs → Check Cloud Run URL, test with curl
+- Pub/Sub not publishing → Check GCP_PROJECT_ID env var, verify service account has pubsub.publisher role
+- Pub/Sub emulator not working → Ensure PUBSUB_EMULATOR_HOST is set, topic/subscription created (run setup script)
+- Messages not in Pub/Sub → Check application logs for publishing errors, verify topic exists
 
 ---
-*Updated: 2025-11-15 | Python 3.11 | FastAPI 0.109.0*
+*Updated: 2025-11-16 | Python 3.11 | FastAPI 0.109.0 | google-cloud-pubsub 2.21.1*

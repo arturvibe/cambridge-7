@@ -36,6 +36,13 @@ resource "google_project_service" "iam" {
   disable_on_destroy = false
 }
 
+resource "google_project_service" "pubsub" {
+  project = var.project_id
+  service = "pubsub.googleapis.com"
+
+  disable_on_destroy = false
+}
+
 # Create Artifact Registry repository for Docker images
 resource "google_artifact_registry_repository" "docker_repo" {
   location      = var.region
@@ -62,6 +69,68 @@ resource "google_artifact_registry_repository" "docker_repo" {
   }
 
   depends_on = [google_project_service.artifact_registry]
+}
+
+# Pub/Sub topic for Frame.io webhooks
+resource "google_pubsub_topic" "frameio_webhooks" {
+  name    = var.pubsub_topic_name
+  project = var.project_id
+
+  labels = {
+    application = "cambridge"
+    purpose     = "frameio-webhooks"
+  }
+
+  depends_on = [google_project_service.pubsub]
+}
+
+# Pub/Sub subscription for testing and debugging
+resource "google_pubsub_subscription" "frameio_webhooks_debug_sub" {
+  name    = "${var.pubsub_topic_name}-debug-sub"
+  topic   = google_pubsub_topic.frameio_webhooks.name
+  project = var.project_id
+
+  # Message retention duration (7 days)
+  message_retention_duration = "604800s"
+
+  # Acknowledgement deadline (10 seconds)
+  ack_deadline_seconds = 10
+
+  # Retry policy
+  retry_policy {
+    minimum_backoff = "10s"
+    maximum_backoff = "600s"
+  }
+
+  # Enable message ordering
+  enable_message_ordering = false
+
+  labels = {
+    application = "cambridge"
+    purpose     = "frameio-webhooks-debug"
+  }
+
+  depends_on = [google_pubsub_topic.frameio_webhooks]
+}
+
+# Service account for Cloud Run
+resource "google_service_account" "cloud_run" {
+  account_id   = var.cloud_run_sa_name
+  display_name = "Cloud Run Service Account"
+  description  = "Service account used by Cloud Run service to publish to Pub/Sub"
+  project      = var.project_id
+
+  depends_on = [google_project_service.iam]
+}
+
+# IAM role for Cloud Run service account to publish to Pub/Sub
+resource "google_pubsub_topic_iam_member" "cloud_run_publisher" {
+  project = var.project_id
+  topic   = google_pubsub_topic.frameio_webhooks.name
+  role    = "roles/pubsub.publisher"
+  member  = "serviceAccount:${google_service_account.cloud_run.email}"
+
+  depends_on = [google_service_account.cloud_run]
 }
 
 # Service account for GitHub Actions

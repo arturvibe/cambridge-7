@@ -1,28 +1,148 @@
 """
 FastAPI application for receiving Frame.io webhooks.
-Logs webhook payloads to stdout for viewing in GCP Cloud Run logs.
+
+This module wires dependencies and configures the application.
+Business logic is in app/core, infrastructure in app/infrastructure.
 """
 
-import json
 import logging
 import os
-from datetime import datetime, UTC
+from contextlib import asynccontextmanager
+from datetime import UTC, datetime
+from functools import lru_cache
 
-from fastapi import FastAPI, Request, status
-from fastapi.responses import JSONResponse
-
+# Configure logging FIRST, before other local imports
 from app.logging_config import setup_global_logging
 
-# Configure logging based on environment (Cloud Run vs local/test)
 setup_global_logging()
 
+# Now import other modules (they will use the configured logging)
+from fastapi import Depends, FastAPI, Request, status  # noqa: E402
+from fastapi.exceptions import RequestValidationError  # noqa: E402
+from fastapi.responses import JSONResponse  # noqa: E402
+
+from app.api import frameio  # noqa: E402
+from app.api.frameio import get_webhook_service_dependency  # noqa: E402
+from app.core.exceptions import PublisherError  # noqa: E402
+from app.core.services import FrameioWebhookService  # noqa: E402
+from app.infrastructure.pubsub_publisher import GooglePubSubPublisher  # noqa: E402
+
 logger = logging.getLogger(__name__)
+
+
+# ============================================================================
+# Application Lifecycle
+# ============================================================================
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """
+    Application lifespan context manager.
+
+    Handles startup and shutdown events using modern FastAPI pattern.
+    """
+    # Startup: nothing to do (dependencies are lazy-loaded)
+    logger.info("Application starting up...")
+    yield
+    # Shutdown: cleanup resources
+    logger.info("Shutting down application...")
+    try:
+        get_event_publisher().close()
+    except Exception as e:
+        # Gracefully handle shutdown errors (e.g., client not initialized)
+        logger.warning(f"Error closing event publisher during shutdown: {e}")
+
 
 app = FastAPI(
     title="Frame.io Webhook Receiver",
     description="Receives and logs Frame.io V4 webhooks",
     version="1.0.0",
+    lifespan=lifespan,
 )
+
+
+# ============================================================================
+# Dependency Injection Configuration (Wiring)
+# ============================================================================
+
+
+@lru_cache()
+def get_event_publisher() -> GooglePubSubPublisher:
+    """
+    Provide the event publisher dependency.
+
+    Uses lru_cache for singleton behavior - same instance across requests.
+    """
+    return GooglePubSubPublisher()
+
+
+def get_webhook_service(
+    event_publisher: GooglePubSubPublisher = Depends(get_event_publisher),
+) -> FrameioWebhookService:
+    """
+    Provide the webhook service dependency.
+
+    This is where we wire the core service with its infrastructure dependencies.
+    """
+    return FrameioWebhookService(event_publisher=event_publisher)
+
+
+# Override the dependency in the router to use our wired service
+app.dependency_overrides[get_webhook_service_dependency] = get_webhook_service
+
+
+# ============================================================================
+# Centralized Exception Handlers
+# ============================================================================
+
+
+@app.exception_handler(PublisherError)
+async def publisher_error_handler(request: Request, exc: PublisherError):
+    """
+    Handle publisher errors (Pub/Sub failures).
+
+    Returns 500 Internal Server Error so Frame.io will retry the webhook.
+    This prevents data loss when Pub/Sub is temporarily unavailable.
+    """
+    logger.error(f"Publisher error: {str(exc)}", exc_info=True)
+    return JSONResponse(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        content={
+            "status": "error",
+            "message": "Failed to publish event - please retry",
+        },
+    )
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_error_handler(request: Request, exc: RequestValidationError):
+    """
+    Handle Pydantic validation errors (invalid JSON or missing fields).
+
+    Returns 422 Unprocessable Entity so Frame.io knows not to retry.
+    Logs the raw request body for debugging.
+    """
+    # Log the validation error with raw body for debugging
+    body = await request.body()
+    logger.error(
+        f"Validation error: {str(exc)}\n"
+        f"Raw body: {body.decode('utf-8') if body else 'empty'}"
+    )
+
+    return JSONResponse(
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        content={
+            "status": "error",
+            "message": "Invalid payload schema",
+            "details": exc.errors(),
+        },
+    )
+
+
+# ============================================================================
+# Health Check Endpoints
+# ============================================================================
 
 
 @app.get("/")
@@ -41,82 +161,16 @@ async def health():
     return {"status": "healthy"}
 
 
-@app.post("/api/v1/frameio/webhook")
-async def frameio_webhook(request: Request):
-    """
-    Receive Frame.io webhook and log payload to stdout.
+# ============================================================================
+# Include Routers
+# ============================================================================
 
-    Frame.io sends webhooks when events occur (e.g., new file created).
-    This endpoint receives the payload and logs it for inspection.
+app.include_router(frameio.router)
 
-    Expected from Frame.io V4:
-    - User-Agent: Frame.io V4 API
-    - Payload structure with type, resource, account, workspace, project, user
-    """
-    try:
-        # Get the raw body
-        body = await request.body()
 
-        # Get headers
-        headers = dict(request.headers)
-        user_agent = headers.get("user-agent", "")
-
-        # Parse JSON payload
-        try:
-            payload = json.loads(body.decode("utf-8"))
-        except Exception as e:
-            logger.error(f"Failed to parse JSON payload: {str(e)}")
-            payload = {"raw_body": body.decode("utf-8") if body else None}
-
-        # Extract Frame.io V4 webhook structure
-        event_type = payload.get("type", "unknown")
-        resource = payload.get("resource", {})
-        resource_type = resource.get("type", "unknown")
-        resource_id = resource.get("id", "unknown")
-        account_id = payload.get("account", {}).get("id")
-        workspace_id = payload.get("workspace", {}).get("id")
-        project_id = payload.get("project", {}).get("id")
-        user_id = payload.get("user", {}).get("id")
-
-        # Log webhook data as structured JSON for Cloud Logging
-        # Single log entry with jsonPayload and automatic trace correlation
-        log_data = {
-            "message": "FRAME.IO WEBHOOK RECEIVED",
-            "event_type": event_type,
-            "resource_type": resource_type,
-            "resource_id": resource_id,
-            "account_id": account_id,
-            "workspace_id": workspace_id,
-            "project_id": project_id,
-            "user_id": user_id,
-            "user_agent": user_agent,
-            "timestamp": datetime.now(UTC).isoformat(),
-            "client_ip": request.client.host if request.client else "unknown",
-            "headers": headers,
-            "payload": payload,
-        }
-
-        # Log as structured JSON - Cloud Logging will populate jsonPayload field
-        logger.info(json.dumps(log_data, default=str))
-
-        # Return success response
-        return JSONResponse(
-            status_code=status.HTTP_200_OK,
-            content={
-                "status": "received",
-                "event_type": event_type,
-                "resource_type": resource_type,
-                "timestamp": datetime.now(UTC).isoformat(),
-            },
-        )
-
-    except Exception as e:
-        logger.error(f"Error processing webhook: {str(e)}", exc_info=True)
-        return JSONResponse(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            content={"status": "error", "message": str(e)},
-        )
-
+# ============================================================================
+# Main Entry Point
+# ============================================================================
 
 if __name__ == "__main__":
     import uvicorn
