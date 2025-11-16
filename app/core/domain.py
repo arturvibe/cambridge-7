@@ -5,7 +5,7 @@ These models represent the business domain and are independent of
 any infrastructure or delivery mechanism.
 """
 
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 from pydantic import AliasPath, BaseModel, Field
 
@@ -16,44 +16,38 @@ class FrameIOEvent(BaseModel):
 
     Represents the complete webhook payload from Frame.io V4 API.
     Uses validation_alias to map nested JSON fields to flat Python fields.
+    All fields are required.
     """
 
     # Map "type" from JSON to "event_type" in Python (avoid Python 'type' keyword)
     event_type: str = Field(
         validation_alias="type",
-        default="unknown",
         description="Event type (e.g., file.created, file.ready)",
     )
 
     # Map nested fields from JSON to flat fields in Python
     resource_id: str = Field(
         validation_alias=AliasPath("resource", "id"),
-        default="unknown",
         description="Resource ID from resource.id",
     )
     resource_type: str = Field(
         validation_alias=AliasPath("resource", "type"),
-        default="unknown",
         description="Resource type from resource.type",
     )
-    account_id: Optional[str] = Field(
+    account_id: str = Field(
         validation_alias=AliasPath("account", "id"),
-        default=None,
         description="Account ID from account.id",
     )
-    workspace_id: Optional[str] = Field(
+    workspace_id: str = Field(
         validation_alias=AliasPath("workspace", "id"),
-        default=None,
         description="Workspace ID from workspace.id",
     )
-    project_id: Optional[str] = Field(
+    project_id: str = Field(
         validation_alias=AliasPath("project", "id"),
-        default=None,
         description="Project ID from project.id",
     )
-    user_id: Optional[str] = Field(
+    user_id: str = Field(
         validation_alias=AliasPath("user", "id"),
-        default=None,
         description="User ID from user.id",
     )
 
@@ -74,8 +68,8 @@ class FrameIOEvent(BaseModel):
                 "id": self.resource_id,
                 "type": self.resource_type,
             },
-            "account": {"id": self.account_id} if self.account_id else {},
-            "workspace": {"id": self.workspace_id} if self.workspace_id else {},
-            "project": {"id": self.project_id} if self.project_id else {},
-            "user": {"id": self.user_id} if self.user_id else {},
+            "account": {"id": self.account_id},
+            "workspace": {"id": self.workspace_id},
+            "project": {"id": self.project_id},
+            "user": {"id": self.user_id},
         }

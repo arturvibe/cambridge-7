@@ -88,8 +88,7 @@ class TestFrameIOWebhook:
 
         assert response.status_code == 200
         data = response.json()
-        assert data["status"] == "received"
-        assert data["event_type"] == "resource.asset_created"
+        assert "message_id" in data
 
     def test_webhook_logs_payload(self, sample_frameio_payload, caplog):
         """Test webhook logs the payload information."""
@@ -110,8 +109,15 @@ class TestFrameIOWebhook:
         assert '"resource_id": "abc-123-def-456"' in log_text
 
     def test_webhook_handles_minimal_payload(self):
-        """Test webhook handles minimal payload with missing optional fields."""
-        minimal_payload = {"type": "unknown_event", "resource": {}}
+        """Test webhook handles payload with all required fields."""
+        minimal_payload = {
+            "type": "unknown_event",
+            "resource": {"type": "asset", "id": "resource-123"},
+            "account": {"id": "account-123"},
+            "workspace": {"id": "workspace-123"},
+            "project": {"id": "project-123"},
+            "user": {"id": "user-123"},
+        }
 
         response = client.post(
             "/api/v1/frameio/webhook",
@@ -121,8 +127,7 @@ class TestFrameIOWebhook:
 
         assert response.status_code == 200
         data = response.json()
-        assert data["status"] == "received"
-        assert data["event_type"] == "unknown_event"
+        assert "message_id" in data
 
     def test_webhook_handles_invalid_json(self, caplog):
         """Test webhook handles invalid JSON gracefully."""
@@ -133,11 +138,10 @@ class TestFrameIOWebhook:
                 headers={"Content-Type": "application/json"},
             )
 
-        # Invalid JSON gets parsed as raw_body and creates event with "unknown" defaults
-        assert response.status_code == 200
+        # Invalid JSON returns 500 error
+        assert response.status_code == 500
         data = response.json()
-        assert data["status"] == "received"
-        assert data["event_type"] == "unknown"
+        assert data["status"] == "error"
 
         # Should log error about JSON parsing
         assert "Failed to parse JSON payload" in caplog.text
@@ -173,19 +177,9 @@ class TestFrameIOWebhook:
         assert response.status_code == 200
         data = response.json()
 
-        # Verify response structure
-        assert "status" in data
-        assert "event_type" in data
-        assert "resource_type" in data
-        assert "timestamp" in data
-
-        # Verify values
-        assert data["status"] == "received"
-        assert data["event_type"] == "resource.asset_created"
-        assert data["resource_type"] == "asset"
-
-        # Validate timestamp format
-        datetime.fromisoformat(data["timestamp"])
+        # Verify response structure contains only message_id
+        assert "message_id" in data
+        assert len(data) == 1
 
 
 class TestEndpointSecurity:
@@ -210,6 +204,10 @@ class TestEndpointSecurity:
                 "id": "large-asset",
                 "metadata": {"large_field": "x" * 10000},  # 10KB of data
             },
+            "account": {"id": "account-123"},
+            "workspace": {"id": "workspace-123"},
+            "project": {"id": "project-123"},
+            "user": {"id": "user-123"},
         }
 
         response = client.post(
@@ -221,18 +219,17 @@ class TestEndpointSecurity:
         assert response.status_code == 200
 
     def test_webhook_handles_empty_payload(self):
-        """Test webhook handles empty payload with defaults."""
+        """Test webhook rejects empty payload (missing required fields)."""
         response = client.post(
             "/api/v1/frameio/webhook",
             json={},
             headers={"Content-Type": "application/json"},
         )
 
-        # Empty payload creates event with "unknown" defaults
-        assert response.status_code == 200
+        # Empty payload returns 500 error (missing required fields)
+        assert response.status_code == 500
         data = response.json()
-        assert data["status"] == "received"
-        assert data["event_type"] == "unknown"
+        assert data["status"] == "error"
 
 
 class TestPubSubIntegration:
@@ -245,6 +242,9 @@ class TestPubSubIntegration:
             "type": "file.created",
             "resource": {"type": "file", "id": "file-123"},
             "account": {"id": "acc-123"},
+            "workspace": {"id": "workspace-123"},
+            "project": {"id": "project-123"},
+            "user": {"id": "user-123"},
         }
 
     def test_webhook_publishes_to_pubsub(self, sample_payload):
@@ -262,7 +262,6 @@ class TestPubSubIntegration:
         data = response.json()
 
         # Verify response includes message ID
-        assert data["status"] == "received"
         assert data["message_id"] == "msg-id-123"
 
         # Verify publish was called with correct data
@@ -293,8 +292,7 @@ class TestPubSubIntegration:
         # Webhook should still return 200 even if Pub/Sub fails
         assert response.status_code == 200
         data = response.json()
-        assert data["status"] == "received"
-        assert "message_id" not in data
+        assert data["message_id"] is None
 
     def test_webhook_when_pubsub_disabled(self, sample_payload):
         """Test webhook works when Pub/Sub returns None."""
@@ -309,30 +307,36 @@ class TestPubSubIntegration:
 
         assert response.status_code == 200
         data = response.json()
-        assert data["status"] == "received"
-        assert "message_id" not in data
+        assert data["message_id"] is None
 
-    def test_webhook_pubsub_attributes_with_minimal_payload(self):
-        """Test Pub/Sub attributes are set correctly for minimal payload."""
+    def test_webhook_pubsub_attributes_with_complete_payload(self):
+        """Test Pub/Sub attributes are set correctly for complete payload."""
         # Configure mock's return value
         mock_event_publisher.publish.return_value = "msg-id-456"
 
-        minimal_payload = {"type": "unknown_event", "resource": {}}
+        complete_payload = {
+            "type": "unknown_event",
+            "resource": {"type": "asset", "id": "asset-123"},
+            "account": {"id": "account-123"},
+            "workspace": {"id": "workspace-123"},
+            "project": {"id": "project-123"},
+            "user": {"id": "user-123"},
+        }
 
         response = client.post(
             "/api/v1/frameio/webhook",
-            json=minimal_payload,
+            json=complete_payload,
             headers={"Content-Type": "application/json"},
         )
 
         assert response.status_code == 200
 
-        # Verify attributes use defaults for missing fields
+        # Verify attributes are set correctly
         call_args = mock_event_publisher.publish.call_args
         attributes = call_args.kwargs["attributes"]
         assert attributes["event_type"] == "unknown_event"
-        assert attributes["resource_type"] == "unknown"
-        assert attributes["resource_id"] == "unknown"
+        assert attributes["resource_type"] == "asset"
+        assert attributes["resource_id"] == "asset-123"
 
 
 class TestApplicationLifecycle:
@@ -347,7 +351,14 @@ class TestApplicationLifecycle:
                 # Make a request to ensure the app works
                 response = test_client.post(
                     "/api/v1/frameio/webhook",
-                    json={"type": "test", "resource": {}},
+                    json={
+                        "type": "test",
+                        "resource": {"type": "asset", "id": "asset-123"},
+                        "account": {"id": "account-123"},
+                        "workspace": {"id": "workspace-123"},
+                        "project": {"id": "project-123"},
+                        "user": {"id": "user-123"},
+                    },
                 )
                 assert response.status_code == 200
                 # TestClient context manager will trigger shutdown on exit
