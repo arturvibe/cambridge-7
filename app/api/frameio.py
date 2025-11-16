@@ -59,27 +59,20 @@ async def frameio_webhook(
             logger.error(f"Failed to parse JSON payload: {str(e)}")
             payload = {"raw_body": body.decode("utf-8") if body else None}
 
-        # Extract Frame.io V4 webhook structure for logging
-        event_type = payload.get("type", "unknown")
-        resource = payload.get("resource", {})
-        resource_type = resource.get("type", "unknown")
-        resource_id = resource.get("id", "unknown")
-        account_id = payload.get("account", {}).get("id")
-        workspace_id = payload.get("workspace", {}).get("id")
-        project_id = payload.get("project", {}).get("id")
-        user_id = payload.get("user", {}).get("id")
+        # Parse payload into domain model
+        event = FrameIOEvent(**payload)
 
         # Log webhook data as structured JSON for Cloud Logging
         # Single log entry with jsonPayload and automatic trace correlation
         log_data = {
             "message": "FRAME.IO WEBHOOK RECEIVED",
-            "event_type": event_type,
-            "resource_type": resource_type,
-            "resource_id": resource_id,
-            "account_id": account_id,
-            "workspace_id": workspace_id,
-            "project_id": project_id,
-            "user_id": user_id,
+            "event_type": event.event_type,
+            "resource_type": event.resource_type,
+            "resource_id": event.resource_id,
+            "account_id": event.account_id,
+            "workspace_id": event.workspace_id,
+            "project_id": event.project_id,
+            "user_id": event.user_id,
             "user_agent": user_agent,
             "timestamp": datetime.now(UTC).isoformat(),
             "client_ip": request.client.host if request.client else "unknown",
@@ -89,9 +82,6 @@ async def frameio_webhook(
 
         # Log as structured JSON - Cloud Logging will populate jsonPayload field
         logger.info(json.dumps(log_data, default=str))
-
-        # Parse payload into domain model
-        event = FrameIOEvent(**payload)
 
         # Process webhook through core service (returns message_id)
         message_id = webhook_service.process_webhook(event)
