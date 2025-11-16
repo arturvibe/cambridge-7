@@ -5,9 +5,8 @@ import pytest
 import httpx
 from unittest.mock import patch, MagicMock
 
-from app.infrastructure.frameio_client import FrameioSourceClient
+from app.infrastructure.frameio_client import FrameioSourceClient, FrameioFile
 from app.core.exceptions import FrameioClientError
-from app.infrastructure.models import FrameioFile
 
 # Constants for testing
 TEST_TOKEN = "test_token"
@@ -65,7 +64,7 @@ def test_get_file_url_missing_url(client):
         }
         mock_http_client.return_value.__enter__.return_value.get.return_value = mock_response
 
-        with pytest.raises(FrameioClientError, match="Original download URL not found"):
+        with pytest.raises(FrameioClientError, match="Failed to parse API response"):
             client.get_file_url(
                 token=TEST_TOKEN, account_id=TEST_ACCOUNT_ID, file_id=TEST_FILE_ID
             )
@@ -84,7 +83,7 @@ def test_get_file_url_missing_filename(client):
         }
         mock_http_client.return_value.__enter__.return_value.get.return_value = mock_response
 
-        with pytest.raises(FrameioClientError, match="Original filename not found"):
+        with pytest.raises(FrameioClientError, match="Failed to parse API response"):
             client.get_file_url(
                 token=TEST_TOKEN, account_id=TEST_ACCOUNT_ID, file_id=TEST_FILE_ID
             )

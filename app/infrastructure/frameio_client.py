@@ -2,10 +2,33 @@
 Client for interacting with the Frame.io API.
 """
 import httpx
+from pydantic import BaseModel, Field, ValidationError
 
 from app.core.exceptions import FrameioClientError
-from app.infrastructure.models import FrameioFile
 
+
+class OriginalMediaLink(BaseModel):
+    """
+    Represents the 'original' media link in the Frame.io API response.
+    """
+    download_url: str
+
+class MediaLinks(BaseModel):
+    """
+    Represents the 'media_links' object in the Frame.io API response.
+    """
+    original: OriginalMediaLink
+
+class FrameioFile(BaseModel):
+    """
+    Represents a file retrieved from the Frame.io API.
+    """
+    name: str
+    media_links: MediaLinks
+
+    @property
+    def url(self) -> str:
+        return self.media_links.original.download_url
 
 class FrameioSourceClient:
     """
@@ -43,25 +66,13 @@ class FrameioSourceClient:
         try:
             with httpx.Client() as client:
                 response = client.get(url, headers=headers, params=params)
-                response.raise_for_status()  # Raises HTTPStatusError for 4xx/5xx
+                response.raise_for_status()
                 data = response.json()
 
-            # The v4 API nests the asset data under a 'data' key
-            asset_data = data.get("data", {})
-            original_url = asset_data.get("media_links", {}).get("original", {}).get("download_url")
-            original_filename = asset_data.get("name")
+            return FrameioFile.model_validate(data.get("data", {}))
 
-            if not original_url:
-                raise FrameioClientError(
-                    f"Original download URL not found for asset '{file_id}'."
-                )
-            if not original_filename:
-                raise FrameioClientError(
-                    f"Original filename not found for asset '{file_id}'."
-                )
-
-            return FrameioFile(url=original_url, name=original_filename)
-
+        except ValidationError as e:
+            raise FrameioClientError(f"Failed to parse API response for asset '{file_id}': {e}") from e
         except httpx.HTTPStatusError as e:
             raise FrameioClientError(
                 f"API request failed for asset '{file_id}': {e.response.status_code} {e.response.text}"
