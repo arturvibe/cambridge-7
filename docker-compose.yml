@@ -22,6 +22,7 @@ services:
       - PUBSUB_EMULATOR_HOST=pubsub-emulator:8085
       - GCP_PROJECT_ID=cambridge-local
       - PUBSUB_TOPIC_NAME=frameio-events
+      - PUBSUB_SUBSCRIPTION_NAME=frameio-events-sub
     depends_on:
       pubsub-emulator:
         condition: service_healthy
@@ -29,15 +30,15 @@ services:
       sh -c '
         echo "Waiting for emulator to be fully ready..." &&
         sleep 2 &&
-        echo "Creating topic: frameio-events" &&
-        curl -s -X PUT "http://pubsub-emulator:8085/v1/projects/cambridge-local/topics/frameio-events" \
+        echo "Creating topic: $${PUBSUB_TOPIC_NAME}" &&
+        curl -s -X PUT "http://$${PUBSUB_EMULATOR_HOST}/v1/projects/$${GCP_PROJECT_ID}/topics/$${PUBSUB_TOPIC_NAME}" \
           -H "Content-Type: application/json" \
           -d "{}" &&
         echo "" &&
-        echo "Creating subscription: frameio-events-sub" &&
-        curl -s -X PUT "http://pubsub-emulator:8085/v1/projects/cambridge-local/subscriptions/frameio-events-sub" \
+        echo "Creating subscription: $${PUBSUB_SUBSCRIPTION_NAME}" &&
+        curl -s -X PUT "http://$${PUBSUB_EMULATOR_HOST}/v1/projects/$${GCP_PROJECT_ID}/subscriptions/$${PUBSUB_SUBSCRIPTION_NAME}" \
           -H "Content-Type: application/json" \
-          -d "{\"topic\": \"projects/cambridge-local/topics/frameio-events\"}" &&
+          -d "{\"topic\": \"projects/$${GCP_PROJECT_ID}/topics/$${PUBSUB_TOPIC_NAME}\"}" &&
         echo "" &&
         echo "Pub/Sub setup complete!"
       '
