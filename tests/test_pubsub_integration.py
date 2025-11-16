@@ -53,8 +53,8 @@ class TestPubSubIntegration:
         assert attributes["resource_type"] == "file"
         assert attributes["resource_id"] == "file-123"
 
-    def test_webhook_continues_if_pubsub_fails(self, sample_payload):
-        """Test webhook still succeeds if Pub/Sub publishing fails."""
+    def test_webhook_returns_500_if_pubsub_fails(self, sample_payload):
+        """Test webhook returns 500 if Pub/Sub publishing fails so Frame.io can retry."""
         # Configure mock to raise an exception
         mock_event_publisher.publish.side_effect = Exception("Pub/Sub error")
 
@@ -64,14 +64,15 @@ class TestPubSubIntegration:
             headers={"Content-Type": "application/json"},
         )
 
-        # Webhook should still return 200 even if Pub/Sub fails
-        assert response.status_code == 200
+        # Webhook should return 500 so Frame.io retries (event won't be lost)
+        assert response.status_code == 500
         data = response.json()
-        assert data["message_id"] is None
+        assert data["status"] == "error"
+        assert "Failed to publish event to Pub/Sub" in data["message"]
 
-    def test_webhook_when_pubsub_disabled(self, sample_payload):
-        """Test webhook works when Pub/Sub returns None."""
-        # Configure mock to return None (disabled)
+    def test_webhook_returns_500_when_pubsub_returns_none(self, sample_payload):
+        """Test webhook returns 500 when Pub/Sub returns None so Frame.io can retry."""
+        # Configure mock to return None (publishing failed)
         mock_event_publisher.publish.return_value = None
 
         response = client.post(
@@ -80,9 +81,11 @@ class TestPubSubIntegration:
             headers={"Content-Type": "application/json"},
         )
 
-        assert response.status_code == 200
+        # Webhook should return 500 so Frame.io retries (event won't be lost)
+        assert response.status_code == 500
         data = response.json()
-        assert data["message_id"] is None
+        assert data["status"] == "error"
+        assert "Failed to publish event to Pub/Sub" in data["message"]
 
     def test_webhook_pubsub_attributes_with_complete_payload(self):
         """Test Pub/Sub attributes are set correctly for complete payload."""

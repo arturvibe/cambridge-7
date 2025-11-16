@@ -27,10 +27,12 @@ def reset_mock_event_publisher():
     Reset the mock event publisher before each test.
 
     This fixture runs automatically for every test (autouse=True).
-    Sets default return value to None to avoid MagicMock serialization issues.
+    Sets default return value to successful message ID.
+    Tests that want to test failure scenarios should override this.
     """
     mock_event_publisher.reset_mock(return_value=None, side_effect=None)
-    mock_event_publisher.publish.return_value = None
+    mock_event_publisher.publish.return_value = "mock-message-id-123"
+    mock_event_publisher.publish.side_effect = None
 
 
 @pytest.fixture

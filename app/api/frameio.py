@@ -86,6 +86,16 @@ async def frameio_webhook(
         # Process webhook through core service (returns message_id)
         message_id = webhook_service.process_webhook(event)
 
+        # If publishing failed, return 500 so Frame.io can retry
+        if message_id is None:
+            return JSONResponse(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                content={
+                    "status": "error",
+                    "message": "Failed to publish event to Pub/Sub",
+                },
+            )
+
         return JSONResponse(
             status_code=status.HTTP_200_OK,
             content={"message_id": message_id},
