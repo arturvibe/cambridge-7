@@ -6,6 +6,7 @@ from app.infrastructure.google_photos_sink_client import GooglePhotosSinkClient
 # Load environment variables from .env file
 load_dotenv()
 
+
 def main():
     parser = argparse.ArgumentParser(description="Upload a photo to Google Photos.")
     parser.add_argument("photo_path", type=str, help="Path to the photo file.")
@@ -17,7 +18,10 @@ def main():
     refresh_token = os.environ.get("GOOGLE_REFRESH_TOKEN")
 
     if not all([client_id, client_secret, refresh_token]):
-        print("Error: Ensure GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, and GOOGLE_REFRESH_TOKEN are in your .env file.")
+        print(
+            "Error: Ensure GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, and "
+            "GOOGLE_REFRESH_TOKEN are in your .env file."
+        )
         return
 
     try:
@@ -46,6 +50,7 @@ def main():
         print(f"Error: The file '{args.photo_path}' was not found.")
     except Exception as e:
         print(f"An unexpected error occurred: {e}")
+
 
 if __name__ == "__main__":
     main()

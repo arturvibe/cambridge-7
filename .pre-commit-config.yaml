@@ -25,3 +25,8 @@ repos:
         args: [--unsafe]  # Allow custom YAML tags in GitHub Actions
       - id: check-added-large-files
       - id: check-merge-conflict
+
+  - repo: https://github.com/pycqa/flake8
+    rev: 7.0.0
+    hooks:
+      - id: flake8
