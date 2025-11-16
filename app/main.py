@@ -8,14 +8,16 @@ import logging
 import os
 from datetime import datetime, UTC
 
+# Configure logging FIRST, before other local imports
+from app.logging_config import setup_global_logging
+
+setup_global_logging()
+
+# Now import other modules (they will use the configured logging)
 from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse
 
-from app.logging_config import setup_global_logging
 from app.pubsub_client import PubSubClient
-
-# Configure logging based on environment (Cloud Run vs local/test)
-setup_global_logging()
 
 logger = logging.getLogger(__name__)
 
