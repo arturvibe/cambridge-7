@@ -36,13 +36,16 @@ class GooglePubSubPublisher:
             topic_name: Pub/Sub topic name (defaults to PUBSUB_TOPIC_NAME env var)
         """
         self.project_id = project_id or os.getenv("GCP_PROJECT_ID")
-        self.topic_name = topic_name or os.getenv("PUBSUB_TOPIC_NAME", "frameio-events")
+        self.topic_name = topic_name or os.getenv("PUBSUB_TOPIC_NAME")
 
         # Check if using emulator
         self.emulator_host = os.getenv("PUBSUB_EMULATOR_HOST")
 
         if not self.project_id:
             raise ValueError("GCP_PROJECT_ID must be set for Pub/Sub publisher")
+
+        if not self.topic_name:
+            raise ValueError("PUBSUB_TOPIC_NAME must be set for Pub/Sub publisher")
 
         self.publisher = pubsub_v1.PublisherClient()
         self.topic_path = self.publisher.topic_path(self.project_id, self.topic_name)

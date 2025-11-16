@@ -49,6 +49,7 @@ class TestGooglePubSubPublisher:
             os.environ,
             {
                 "GCP_PROJECT_ID": "test-project",
+                "PUBSUB_TOPIC_NAME": "test-topic",
                 "PUBSUB_EMULATOR_HOST": "localhost:8085",
             },
         ):
@@ -56,19 +57,11 @@ class TestGooglePubSubPublisher:
 
             assert publisher.emulator_host == "localhost:8085"
 
-    @patch("app.infrastructure.pubsub_publisher.pubsub_v1.PublisherClient")
-    def test_publisher_default_topic_name(self, mock_publisher_class):
-        """Test publisher uses default topic name."""
-        mock_publisher = MagicMock()
-        mock_publisher_class.return_value = mock_publisher
-        mock_publisher.topic_path.return_value = (
-            "projects/test-project/topics/frameio-events"
-        )
-
-        with patch.dict(os.environ, {"GCP_PROJECT_ID": "test-project"}):
-            publisher = GooglePubSubPublisher()
-
-            assert publisher.topic_name == "frameio-events"
+    def test_publisher_missing_topic_name_raises_error(self):
+        """Test publisher raises error when topic name is missing."""
+        with patch.dict(os.environ, {"GCP_PROJECT_ID": "test-project"}, clear=True):
+            with pytest.raises(ValueError, match="PUBSUB_TOPIC_NAME must be set"):
+                GooglePubSubPublisher()
 
 
 class TestGooglePubSubPublish:
@@ -88,7 +81,10 @@ class TestGooglePubSubPublish:
         mock_future.result.return_value = "test-message-id"
         mock_publisher.publish.return_value = mock_future
 
-        with patch.dict(os.environ, {"GCP_PROJECT_ID": "test-project"}):
+        with patch.dict(
+            os.environ,
+            {"GCP_PROJECT_ID": "test-project", "PUBSUB_TOPIC_NAME": "test-topic"},
+        ):
             publisher = GooglePubSubPublisher()
 
             message_id = publisher.publish(
@@ -110,7 +106,10 @@ class TestGooglePubSubPublish:
         # Mock publish to raise NotFound
         mock_publisher.publish.side_effect = exceptions.NotFound("Topic not found")
 
-        with patch.dict(os.environ, {"GCP_PROJECT_ID": "test-project"}):
+        with patch.dict(
+            os.environ,
+            {"GCP_PROJECT_ID": "test-project", "PUBSUB_TOPIC_NAME": "test-topic"},
+        ):
             publisher = GooglePubSubPublisher()
 
             message_id = publisher.publish(message_data={"test": "data"})
@@ -131,7 +130,10 @@ class TestGooglePubSubPublish:
             "Access denied"
         )
 
-        with patch.dict(os.environ, {"GCP_PROJECT_ID": "test-project"}):
+        with patch.dict(
+            os.environ,
+            {"GCP_PROJECT_ID": "test-project", "PUBSUB_TOPIC_NAME": "test-topic"},
+        ):
             publisher = GooglePubSubPublisher()
 
             message_id = publisher.publish(message_data={"test": "data"})
@@ -150,7 +152,10 @@ class TestGooglePubSubPublish:
         # Mock publish to raise generic exception
         mock_publisher.publish.side_effect = Exception("Network error")
 
-        with patch.dict(os.environ, {"GCP_PROJECT_ID": "test-project"}):
+        with patch.dict(
+            os.environ,
+            {"GCP_PROJECT_ID": "test-project", "PUBSUB_TOPIC_NAME": "test-topic"},
+        ):
             publisher = GooglePubSubPublisher()
 
             message_id = publisher.publish(message_data={"test": "data"})
@@ -170,7 +175,10 @@ class TestGooglePubSubPublish:
         mock_future.result.return_value = "test-message-id"
         mock_publisher.publish.return_value = mock_future
 
-        with patch.dict(os.environ, {"GCP_PROJECT_ID": "test-project"}):
+        with patch.dict(
+            os.environ,
+            {"GCP_PROJECT_ID": "test-project", "PUBSUB_TOPIC_NAME": "test-topic"},
+        ):
             publisher = GooglePubSubPublisher()
 
             message_id = publisher.publish(message_data={"test": "data"})
@@ -186,7 +194,10 @@ class TestGooglePubSubPublish:
             "projects/test-project/topics/test-topic"
         )
 
-        with patch.dict(os.environ, {"GCP_PROJECT_ID": "test-project"}):
+        with patch.dict(
+            os.environ,
+            {"GCP_PROJECT_ID": "test-project", "PUBSUB_TOPIC_NAME": "test-topic"},
+        ):
             publisher = GooglePubSubPublisher()
             publisher.close()
 

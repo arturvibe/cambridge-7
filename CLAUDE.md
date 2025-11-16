@@ -189,7 +189,7 @@ terraform output pubsub_topic_name          # View Pub/Sub topic name
 
 **Environment Variables (Cloud Run):**
 - `GCP_PROJECT_ID` - GCP project ID (required)
-- `PUBSUB_TOPIC_NAME` - Pub/Sub topic name (default: `frameio-events`)
+- `PUBSUB_TOPIC_NAME` - Pub/Sub topic name (required)
 - `PUBSUB_EMULATOR_HOST` - Pub/Sub emulator host (local dev only, e.g., `localhost:8085`)
 - `K_SERVICE` - Auto-set by Cloud Run (triggers structured logging)
 
