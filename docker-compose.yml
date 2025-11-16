@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+  # Google Cloud Pub/Sub Emulator
+  pubsub-emulator:
+    image: gcr.io/google.com/cloudsdktool/cloud-sdk:emulators
+    command: gcloud beta emulators pubsub start --host-port=0.0.0.0:8085 --project=cambridge-local
+    ports:
+      - "8085:8085"
+    environment:
+      - PUBSUB_PROJECT_ID=cambridge-local
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8085"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Cambridge application
+  cambridge:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      - PUBSUB_EMULATOR_HOST=pubsub-emulator:8085
+      - GCP_PROJECT_ID=cambridge-local
+      - PUBSUB_TOPIC_NAME=frameio-webhooks
+      - PUBSUB_ENABLED=true
+    depends_on:
+      pubsub-emulator:
+        condition: service_healthy
+    volumes:
+      - ./app:/app/app:ro

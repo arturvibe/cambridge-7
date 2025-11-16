@@ -2,13 +2,16 @@
 Unit tests for the Cambridge FastAPI webhook application.
 """
 
+import os
 from datetime import datetime
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
 
-from app.main import app
+# Mock Pub/Sub before importing app
+with patch.dict(os.environ, {"PUBSUB_ENABLED": "false"}):
+    from app.main import app
 
 client = TestClient(app)
 
@@ -211,3 +214,119 @@ class TestEndpointSecurity:
         data = response.json()
         assert data["status"] == "received"
         assert data["event_type"] == "unknown"
+
+
+class TestPubSubIntegration:
+    """Test Pub/Sub integration in webhook endpoint."""
+
+    @pytest.fixture
+    def sample_payload(self):
+        """Sample webhook payload."""
+        return {
+            "type": "file.created",
+            "resource": {"type": "file", "id": "file-123"},
+            "account": {"id": "acc-123"},
+        }
+
+    @patch("app.main.pubsub_client")
+    def test_webhook_publishes_to_pubsub(self, mock_pubsub_client, sample_payload):
+        """Test webhook publishes message to Pub/Sub."""
+        # Mock publish to return a message ID
+        mock_pubsub_client.publish.return_value = "msg-id-123"
+
+        response = client.post(
+            "/api/v1/frameio/webhook",
+            json=sample_payload,
+            headers={"Content-Type": "application/json"},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+
+        # Verify response includes message ID
+        assert data["status"] == "received"
+        assert data["pubsub_message_id"] == "msg-id-123"
+
+        # Verify publish was called with correct data
+        mock_pubsub_client.publish.assert_called_once()
+        call_args = mock_pubsub_client.publish.call_args
+
+        # Check message data
+        assert call_args.kwargs["message_data"] == sample_payload
+
+        # Check attributes
+        attributes = call_args.kwargs["attributes"]
+        assert attributes["event_type"] == "file.created"
+        assert attributes["resource_type"] == "file"
+        assert attributes["resource_id"] == "file-123"
+
+    @patch("app.main.pubsub_client")
+    def test_webhook_continues_if_pubsub_fails(self, mock_pubsub_client, sample_payload):
+        """Test webhook still succeeds if Pub/Sub publishing fails."""
+        # Mock publish to raise an exception
+        mock_pubsub_client.publish.side_effect = Exception("Pub/Sub error")
+
+        response = client.post(
+            "/api/v1/frameio/webhook",
+            json=sample_payload,
+            headers={"Content-Type": "application/json"},
+        )
+
+        # Webhook should still return 200 even if Pub/Sub fails
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status"] == "received"
+        assert "pubsub_message_id" not in data
+
+    @patch("app.main.pubsub_client")
+    def test_webhook_when_pubsub_disabled(self, mock_pubsub_client, sample_payload):
+        """Test webhook works when Pub/Sub is disabled."""
+        # Mock publish to return None (disabled)
+        mock_pubsub_client.publish.return_value = None
+
+        response = client.post(
+            "/api/v1/frameio/webhook",
+            json=sample_payload,
+            headers={"Content-Type": "application/json"},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status"] == "received"
+        assert "pubsub_message_id" not in data
+
+    @patch("app.main.pubsub_client")
+    def test_webhook_pubsub_attributes_with_minimal_payload(self, mock_pubsub_client):
+        """Test Pub/Sub attributes are set correctly for minimal payload."""
+        mock_pubsub_client.publish.return_value = "msg-id-456"
+
+        minimal_payload = {"type": "unknown_event", "resource": {}}
+
+        response = client.post(
+            "/api/v1/frameio/webhook",
+            json=minimal_payload,
+            headers={"Content-Type": "application/json"},
+        )
+
+        assert response.status_code == 200
+
+        # Verify attributes use defaults for missing fields
+        call_args = mock_pubsub_client.publish.call_args
+        attributes = call_args.kwargs["attributes"]
+        assert attributes["event_type"] == "unknown_event"
+        assert attributes["resource_type"] == "unknown"
+        assert attributes["resource_id"] == "unknown"
+
+
+class TestApplicationLifecycle:
+    """Test application lifecycle events."""
+
+    @patch("app.main.pubsub_client")
+    def test_shutdown_event_closes_pubsub_client(self, mock_pubsub_client):
+        """Test shutdown event properly closes Pub/Sub client."""
+        with TestClient(app) as test_client:
+            # Client context manager triggers shutdown
+            pass
+
+        # Verify close was called
+        mock_pubsub_client.close.assert_called()

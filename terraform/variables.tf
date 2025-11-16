@@ -26,3 +26,15 @@ variable "artifact_registry_repo_name" {
   type        = string
   default     = "cambridge-repo"
 }
+
+variable "pubsub_topic_name" {
+  description = "Pub/Sub topic name for Frame.io webhooks"
+  type        = string
+  default     = "frameio-webhooks"
+}
+
+variable "cloud_run_sa_name" {
+  description = "Service account name for Cloud Run"
+  type        = string
+  default     = "cambridge-cloud-run"
+}

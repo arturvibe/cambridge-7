@@ -12,6 +12,7 @@ from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse
 
 from app.logging_config import setup_global_logging
+from app.pubsub_client import PubSubClient
 
 # Configure logging based on environment (Cloud Run vs local/test)
 setup_global_logging()
@@ -23,6 +24,16 @@ app = FastAPI(
     description="Receives and logs Frame.io V4 webhooks",
     version="1.0.0",
 )
+
+# Initialize Pub/Sub client (will auto-detect emulator or production)
+pubsub_client = PubSubClient()
+
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Cleanup on application shutdown."""
+    logger.info("Shutting down application...")
+    pubsub_client.close()
 
 
 @app.get("/")
@@ -99,15 +110,38 @@ async def frameio_webhook(request: Request):
         # Log as structured JSON - Cloud Logging will populate jsonPayload field
         logger.info(json.dumps(log_data, default=str))
 
+        # Publish to Pub/Sub
+        pubsub_message_id = None
+        try:
+            pubsub_message_id = pubsub_client.publish(
+                message_data=payload,
+                attributes={
+                    "event_type": event_type,
+                    "resource_type": resource_type,
+                    "resource_id": resource_id,
+                }
+            )
+            if pubsub_message_id:
+                logger.info(f"Published to Pub/Sub with message ID: {pubsub_message_id}")
+        except Exception as e:
+            # Don't fail the webhook if Pub/Sub publishing fails
+            logger.error(f"Failed to publish to Pub/Sub: {str(e)}", exc_info=True)
+
         # Return success response
+        response_content = {
+            "status": "received",
+            "event_type": event_type,
+            "resource_type": resource_type,
+            "timestamp": datetime.now(UTC).isoformat(),
+        }
+
+        # Include Pub/Sub message ID in response if available
+        if pubsub_message_id:
+            response_content["pubsub_message_id"] = pubsub_message_id
+
         return JSONResponse(
             status_code=status.HTTP_200_OK,
-            content={
-                "status": "received",
-                "event_type": event_type,
-                "resource_type": resource_type,
-                "timestamp": datetime.now(UTC).isoformat(),
-            },
+            content=response_content,
         )
 
     except Exception as e:
