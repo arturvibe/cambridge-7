@@ -7,6 +7,7 @@ Business logic is in app/core, infrastructure in app/infrastructure.
 
 import logging
 import os
+from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 from functools import lru_cache
 
@@ -28,10 +29,36 @@ from app.infrastructure.pubsub_publisher import GooglePubSubPublisher  # noqa: E
 
 logger = logging.getLogger(__name__)
 
+
+# ============================================================================
+# Application Lifecycle
+# ============================================================================
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """
+    Application lifespan context manager.
+
+    Handles startup and shutdown events using modern FastAPI pattern.
+    """
+    # Startup: nothing to do (dependencies are lazy-loaded)
+    logger.info("Application starting up...")
+    yield
+    # Shutdown: cleanup resources
+    logger.info("Shutting down application...")
+    try:
+        get_event_publisher().close()
+    except Exception as e:
+        # Gracefully handle shutdown errors (e.g., client not initialized)
+        logger.warning(f"Error closing event publisher during shutdown: {e}")
+
+
 app = FastAPI(
     title="Frame.io Webhook Receiver",
     description="Receives and logs Frame.io V4 webhooks",
     version="1.0.0",
+    lifespan=lifespan,
 )
 
 
@@ -111,23 +138,6 @@ async def validation_error_handler(request: Request, exc: RequestValidationError
             "details": exc.errors(),
         },
     )
-
-
-# ============================================================================
-# Application Lifecycle
-# ============================================================================
-
-
-@app.on_event("shutdown")
-async def shutdown_event():
-    """Cleanup on application shutdown."""
-    logger.info("Shutting down application...")
-    try:
-        # Close the event publisher
-        get_event_publisher().close()
-    except Exception as e:
-        # Gracefully handle shutdown errors (e.g., client not initialized)
-        logger.warning(f"Error closing event publisher during shutdown: {e}")
 
 
 # ============================================================================
