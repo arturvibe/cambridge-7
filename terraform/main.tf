@@ -6,10 +6,19 @@ terraform {
       source  = "hashicorp/google"
       version = "~> 5.0"
     }
+    google-beta = {
+      source  = "hashicorp/google-beta"
+      version = "~> 5.0"
+    }
   }
 }
 
 provider "google" {
+  project = var.project_id
+  region  = var.region
+}
+
+provider "google-beta" {
   project = var.project_id
   region  = var.region
 }
@@ -39,6 +48,27 @@ resource "google_project_service" "iam" {
 resource "google_project_service" "pubsub" {
   project = var.project_id
   service = "pubsub.googleapis.com"
+
+  disable_on_destroy = false
+}
+
+resource "google_project_service" "firebase" {
+  project = var.project_id
+  service = "firebase.googleapis.com"
+
+  disable_on_destroy = false
+}
+
+resource "google_project_service" "firebase_hosting" {
+  project = var.project_id
+  service = "firebasehosting.googleapis.com"
+
+  disable_on_destroy = false
+}
+
+resource "google_project_service" "identity_toolkit" {
+  project = var.project_id
+  service = "identitytoolkit.googleapis.com"
 
   disable_on_destroy = false
 }
@@ -233,3 +263,32 @@ resource "google_service_account_key" "github_actions_key" {
 #   role     = "roles/run.invoker"
 #   member   = "allUsers"
 # }
+
+# Firebase Project
+resource "google_firebase_project" "default" {
+  provider = google-beta
+  project  = var.project_id
+  depends_on = [
+    google_project_service.firebase,
+  ]
+}
+
+# Firebase Identity Platform Configuration
+resource "google_identity_platform_config" "default" {
+  provider = google-beta
+  project  = var.project_id
+  autodelete_anonymous_users = true
+
+  sign_in {
+    allow_duplicate_emails = false
+    email {
+      enabled          = true
+      password_required = false # for magic link
+    }
+  }
+
+  depends_on = [
+    google_firebase_project.default,
+    google_project_service.identity_toolkit,
+  ]
+}

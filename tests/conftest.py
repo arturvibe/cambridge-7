@@ -18,6 +18,18 @@ mock_event_publisher = MagicMock()
 # Use FastAPI's dependency_overrides to replace the real publisher with our mock
 app.dependency_overrides[get_event_publisher] = lambda: mock_event_publisher
 
+
+@pytest.fixture(autouse=True)
+def mock_firebase_admin():
+    """
+    Mock the firebase_admin library to prevent initialization.
+    """
+    with patch("firebase_admin.initialize_app") as mock_initialize_app, patch(
+        "firebase_admin.credentials.ApplicationDefault"
+    ) as mock_credentials:
+        yield mock_initialize_app, mock_credentials
+
+
 client = TestClient(app)
 
 

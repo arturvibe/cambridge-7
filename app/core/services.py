@@ -7,14 +7,29 @@ infrastructure details like HTTP or message queues.
 
 import json
 import logging
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Dict
 
 from app.core.domain import FrameIOEvent
 from app.core.exceptions import PublisherError
 from app.core.ports import EventPublisher
+from firebase_admin import auth
 
 logger = logging.getLogger(__name__)
+
+
+class AuthService:
+    """
+    Application service for user authentication.
+    """
+
+    def create_session_cookie(self, id_token: str, expires_in_days: int = 14) -> str:
+        """
+        Creates a session cookie after verifying the ID token.
+        """
+        expires_in = timedelta(days=expires_in_days)
+        session_cookie = auth.create_session_cookie(id_token, expires_in=expires_in)
+        return session_cookie
 
 
 class FrameioWebhookService:
