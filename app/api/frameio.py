@@ -13,26 +13,26 @@ from fastapi import APIRouter, Depends, Request, status
 from fastapi.responses import JSONResponse
 
 from app.core.domain import FrameIOEvent
-from app.core.services import WebhookService
+from app.core.services import FrameioWebhookService
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/frameio", tags=["frameio"])
 
 
-def get_webhook_service_dependency() -> WebhookService:
+def get_webhook_service_dependency() -> FrameioWebhookService:
     """
-    Placeholder dependency function for WebhookService.
+    Placeholder dependency function for FrameioWebhookService.
 
     This will be overridden in main.py via app.dependency_overrides.
     """
-    raise NotImplementedError("WebhookService dependency must be configured")
+    raise NotImplementedError("FrameioWebhookService dependency must be configured")
 
 
 @router.post("/webhook")
 async def frameio_webhook(
     request: Request,
-    webhook_service: WebhookService = Depends(get_webhook_service_dependency),
+    webhook_service: FrameioWebhookService = Depends(get_webhook_service_dependency),
 ):
     """
     Receive Frame.io webhook and process event.

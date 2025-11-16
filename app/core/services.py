@@ -14,7 +14,7 @@ from app.core.ports import EventPublisher
 logger = logging.getLogger(__name__)
 
 
-class WebhookService:
+class FrameioWebhookService:
     """
     Application service for processing Frame.io webhooks.
 

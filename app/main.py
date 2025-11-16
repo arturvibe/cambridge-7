@@ -20,7 +20,7 @@ from fastapi import Depends, FastAPI  # noqa: E402
 
 from app.api import frameio  # noqa: E402
 from app.api.frameio import get_webhook_service_dependency  # noqa: E402
-from app.core.services import WebhookService  # noqa: E402
+from app.core.services import FrameioWebhookService  # noqa: E402
 from app.infrastructure.pubsub_publisher import GooglePubSubPublisher  # noqa: E402
 
 logger = logging.getLogger(__name__)
@@ -49,13 +49,13 @@ def get_event_publisher() -> GooglePubSubPublisher:
 
 def get_webhook_service(
     event_publisher: GooglePubSubPublisher = Depends(get_event_publisher),
-) -> WebhookService:
+) -> FrameioWebhookService:
     """
     Provide the webhook service dependency.
 
     This is where we wire the core service with its infrastructure dependencies.
     """
-    return WebhookService(event_publisher=event_publisher)
+    return FrameioWebhookService(event_publisher=event_publisher)
 
 
 # Override the dependency in the router to use our wired service
