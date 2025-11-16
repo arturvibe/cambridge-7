@@ -307,7 +307,7 @@ docker-compose up
 This starts:
 - Pub/Sub emulator on port 8085
 - Cambridge app on `http://localhost:8080`
-- Auto-creates topic (`frameio-events`) and subscription
+- Auto-creates topic (`frameio-events`) and debug subscription (`frameio-events-debug-sub`)
 
 **Test the webhook:**
 ```bash

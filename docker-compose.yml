@@ -20,7 +20,7 @@ services:
       - PUBSUB_EMULATOR_HOST=pubsub-emulator:8085
       - GCP_PROJECT_ID=cambridge-local
       - PUBSUB_TOPIC_NAME=frameio-events
-      - PUBSUB_SUBSCRIPTION_NAME=frameio-events-sub
+      - PUBSUB_SUBSCRIPTION_NAME=frameio-events-debug-sub
     depends_on:
       pubsub-emulator:
         condition: service_healthy

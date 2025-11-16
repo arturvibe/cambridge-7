@@ -144,7 +144,7 @@ Examples:
 - Artifact Registry for images (tags: `<short-sha>`, `latest`, `deployed-<timestamp>`)
   - Cleanup policy: keeps 7 most recent versions
 - Pub/Sub topic: `frameio-events` (for webhook event distribution)
-- Pub/Sub subscription: `frameio-events-sub` (7-day retention, for testing/monitoring)
+- Pub/Sub subscription: `frameio-events-debug-sub` (7-day retention, for testing/debugging)
 - Service accounts:
   - GitHub Actions (CI/CD deployment)
   - Cloud Run (Pub/Sub publisher role)
@@ -179,7 +179,7 @@ Examples:
 - Add endpoint: app/main.py + tests/test_main.py + README + maintain 90% coverage
 - Modify logging: Edit `app/logging_config.py` (K_SERVICE detection for Cloud Run)
 - Modify Pub/Sub: Edit `app/pubsub_client.py` + update tests in tests/test_pubsub_client.py
-- Add Pub/Sub consumer: Create new service + subscribe to `frameio-events-sub`
+- Add Pub/Sub consumer: Create new service + subscribe to `frameio-events` topic (or use `frameio-events-debug-sub` for testing)
 
 **GitHub Actions best practices:**
 - Use `pull_request` trigger only for PR checks (not both `push` and `pull_request`)
@@ -216,10 +216,10 @@ gcloud artifacts docker tags list europe-west1-docker.pkg.dev/$PROJECT_ID/cambri
 
 # Pub/Sub (local testing with emulator)
 docker-compose up                            # Start app + Pub/Sub emulator (auto-creates topics)
-python scripts/pull-pubsub-messages.py      # Pull messages from frameio-events-sub
+python scripts/pull-pubsub-messages.py      # Pull messages from frameio-events-debug-sub
 
 # Pub/Sub (production)
-gcloud pubsub subscriptions pull frameio-events-sub --limit=10 --auto-ack
+gcloud pubsub subscriptions pull frameio-events-debug-sub --limit=10 --auto-ack
 gcloud pubsub topics publish frameio-events --message='{"test": "message"}'
 
 # Terraform

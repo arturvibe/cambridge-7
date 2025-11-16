@@ -84,9 +84,9 @@ resource "google_pubsub_topic" "frameio_webhooks" {
   depends_on = [google_project_service.pubsub]
 }
 
-# Pub/Sub subscription for testing and monitoring
-resource "google_pubsub_subscription" "frameio_webhooks_sub" {
-  name    = "${var.pubsub_topic_name}-sub"
+# Pub/Sub subscription for testing and debugging
+resource "google_pubsub_subscription" "frameio_webhooks_debug_sub" {
+  name    = "${var.pubsub_topic_name}-debug-sub"
   topic   = google_pubsub_topic.frameio_webhooks.name
   project = var.project_id
 
@@ -107,7 +107,7 @@ resource "google_pubsub_subscription" "frameio_webhooks_sub" {
 
   labels = {
     application = "cambridge"
-    purpose     = "frameio-webhooks"
+    purpose     = "frameio-webhooks-debug"
   }
 
   depends_on = [google_pubsub_topic.frameio_webhooks]
