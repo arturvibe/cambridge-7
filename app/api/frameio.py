@@ -12,6 +12,7 @@ from datetime import UTC, datetime
 from fastapi import APIRouter, Depends, Request, status
 from fastapi.responses import JSONResponse
 
+from app.core.domain import FrameIOEvent
 from app.core.services import WebhookService
 
 logger = logging.getLogger(__name__)
@@ -89,8 +90,11 @@ async def frameio_webhook(
         # Log as structured JSON - Cloud Logging will populate jsonPayload field
         logger.info(json.dumps(log_data, default=str))
 
+        # Parse payload into domain model
+        event = FrameIOEvent(**payload)
+
         # Process webhook through core service
-        result = webhook_service.process_webhook(payload)
+        result = webhook_service.process_webhook(event)
 
         # Add timestamp to response
         result["timestamp"] = datetime.now(UTC).isoformat()

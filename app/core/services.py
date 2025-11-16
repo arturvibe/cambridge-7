@@ -57,28 +57,21 @@ class WebhookService:
         """
         self.event_publisher = event_publisher
 
-    def process_webhook(
-        self, payload: Dict[str, Any], metadata: Optional[Dict[str, str]] = None
-    ) -> Dict[str, Any]:
+    def process_webhook(self, event: FrameIOEvent) -> Dict[str, Any]:
         """
         Process a Frame.io webhook event.
 
         This is the core business logic:
-        1. Parse and validate the payload
-        2. Create domain model
-        3. Publish event for downstream consumers
-        4. Return processing result
+        1. Publish event for downstream consumers
+        2. Return processing result
 
         Args:
-            payload: Raw webhook payload
-            metadata: Optional metadata (headers, IP, etc.)
+            event: Parsed Frame.io event domain model
 
         Returns:
             Processing result with status and message ID
         """
         try:
-            # Parse into domain model (Pydantic handles nested field extraction via validation_alias)
-            event = FrameIOEvent(**payload)
 
             logger.info(
                 f"Processing Frame.io event: {event.event_type} "
