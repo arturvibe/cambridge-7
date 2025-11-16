@@ -52,7 +52,7 @@ FastAPI webhook receiver for Frame.io V4 → logs payloads to GCP Cloud Run → 
 - `tests/test_security.py` - Security and edge case tests
 - `tests/test_lifecycle.py` - Application lifecycle tests
 - `Dockerfile` - Multi-stage build
-- `.github/workflows/` - CI/CD (commitlint, test, deploy)
+- `.github/workflows/` - CI/CD (test, deploy)
 - `terraform/` - GCP infrastructure as code (includes Pub/Sub topic/subscription)
 - `docker-compose.yml` - Local dev environment with Pub/Sub emulator
 
@@ -76,7 +76,6 @@ docker build -t cambridge . && docker run -p 8080:8080 cambridge
 **Pre-commit hooks:** Auto-format Python (black) and Terraform files before commit
 
 **CI/CD:**
-- commitlint (PRs only) → validates all commits in PR
 - test (PRs only) → runs pytest with coverage
 - terraform-validate (PRs only) → validates terraform configuration
 - deploy (manual) → workflow_dispatch with blue-green deployment to Cloud Run
@@ -86,18 +85,6 @@ docker build -t cambridge . && docker run -p 8080:8080 cambridge
   - Step 4: Tag deployed image with `deployed-<timestamp>` tag in Artifact Registry
 
 ## Conventions
-
-### Commits & PR Titles (ENFORCED)
-**Format:** `type: subject` (max 100 chars, lowercase type)
-
-**Types:** `feat` `fix` `docs` `style` `refactor` `perf` `test` `build` `ci` `chore` `revert`
-
-Examples:
-- `feat: add file.ready webhook support`
-- `fix: handle missing workspace_id`
-- `test: add large payload tests`
-
-**Note:** PR titles must follow the same format as commit messages
 
 ### Code Style
 - **Format:** black (88 char line length)
@@ -184,7 +171,7 @@ Examples:
 **GitHub Actions best practices:**
 - Use `pull_request` trigger only for PR checks (not both `push` and `pull_request`)
 - Avoid duplicate workflow runs by choosing one trigger per workflow
-- Current setup: commitlint + test run on PRs only, deploy is manual
+- Current setup: test run on PRs only, deploy is manual
 
 **Security notes:**
 - Unauthenticated access (required for webhooks)
@@ -232,7 +219,7 @@ terraform output pubsub_topic_name          # View Pub/Sub topic name
 
 **Branch pattern:** `agent/agents-md-<session-id>` (never push to main)
 
-**Process:** Commit → Tests auto-run → Commitlint validates → Manual deploy via Actions
+**Process:** Commit → Tests auto-run → Manual deploy via Actions
 
 **Blue-Green Deployment:**
 1. **Deploy (no traffic):** New revision deployed with `--no-traffic` flag, tagged with short SHA (8 chars)
