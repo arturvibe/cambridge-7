@@ -323,9 +323,14 @@ curl -X POST http://localhost:8080/api/v1/frameio/webhook \
   }'
 ```
 
-**Pull Pub/Sub messages:**
+**Pull Pub/Sub messages (local):**
 ```bash
 python scripts/pull-pubsub-messages.py
+```
+
+**Pull Pub/Sub messages (production):**
+```bash
+gcloud pubsub subscriptions pull frameio-events-debug-sub --limit=10 --auto-ack
 ```
 
 **Option 2: Run directly with Python**
