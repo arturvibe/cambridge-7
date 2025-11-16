@@ -65,6 +65,9 @@ jobs:
           image: ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.ARTIFACT_REGISTRY_REPO }}/${{ env.SERVICE_NAME }}:${{ steps.vars.outputs.short_sha }}
           no_traffic: true
           tag: ${{ steps.vars.outputs.revision_tag }}
+          env_vars: |
+            GCP_PROJECT_ID=${{ env.PROJECT_ID }}
+            PUBSUB_TOPIC_NAME=frameio-events
           flags: |
             --allow-unauthenticated
             --max-instances=1
@@ -72,6 +75,7 @@ jobs:
             --cpu=1
             --port=8080
             --timeout=60
+            --service-account=cambridge-cloud-run@${{ env.PROJECT_ID }}.iam.gserviceaccount.com
 
       - name: Get new revision URL
         id: get-revision-url

@@ -121,7 +121,7 @@ Examples:
 
 **Common tasks:**
 - Add webhook field: Extract in app/main.py → Log + Publish to Pub/Sub → Add tests
-- Change Cloud Run config: Edit `.github/workflows/deploy.yml:48-59`
+- Change Cloud Run config: Edit `.github/workflows/deploy.yml:59-78` (env vars, flags, service account)
 - Add endpoint: app/main.py + tests/test_main.py + README + maintain 90% coverage
 - Modify logging: Edit `app/logging_config.py` (K_SERVICE detection for Cloud Run)
 - Modify Pub/Sub: Edit `app/pubsub_client.py` + update tests in tests/test_pubsub_client.py
