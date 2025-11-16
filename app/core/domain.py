@@ -7,7 +7,7 @@ any infrastructure or delivery mechanism.
 
 from typing import Any, Dict, Optional
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import AliasPath, BaseModel, Field
 
 
 class FrameIOEvent(BaseModel):
@@ -15,81 +15,67 @@ class FrameIOEvent(BaseModel):
     Frame.io webhook event.
 
     Represents the complete webhook payload from Frame.io V4 API.
-    Flattened structure extracting IDs from nested objects.
+    Uses validation_alias to map nested JSON fields to flat Python fields.
     """
 
-    type: str = Field(description="Event type (e.g., file.created, file.ready)")
+    # Map "type" from JSON to "event_type" in Python (avoid Python 'type' keyword)
+    event_type: str = Field(
+        validation_alias="type",
+        default="unknown",
+        description="Event type (e.g., file.created, file.ready)",
+    )
+
+    # Map nested fields from JSON to flat fields in Python
     resource_id: str = Field(
-        default="unknown", description="Resource ID from resource.id"
+        validation_alias=AliasPath("resource", "id"),
+        default="unknown",
+        description="Resource ID from resource.id",
     )
     resource_type: str = Field(
-        default="unknown", description="Resource type from resource.type"
+        validation_alias=AliasPath("resource", "type"),
+        default="unknown",
+        description="Resource type from resource.type",
     )
-    account_id: Optional[str] = Field(default=None, description="Account ID")
-    workspace_id: Optional[str] = Field(default=None, description="Workspace ID")
-    project_id: Optional[str] = Field(default=None, description="Project ID")
-    user_id: Optional[str] = Field(default=None, description="User ID")
-
-    # Store the original payload for full context (not part of serialization)
-    raw_payload: Dict[str, Any] = Field(default_factory=dict, exclude=True)
+    account_id: Optional[str] = Field(
+        validation_alias=AliasPath("account", "id"),
+        default=None,
+        description="Account ID from account.id",
+    )
+    workspace_id: Optional[str] = Field(
+        validation_alias=AliasPath("workspace", "id"),
+        default=None,
+        description="Workspace ID from workspace.id",
+    )
+    project_id: Optional[str] = Field(
+        validation_alias=AliasPath("project", "id"),
+        default=None,
+        description="Project ID from project.id",
+    )
+    user_id: Optional[str] = Field(
+        validation_alias=AliasPath("user", "id"),
+        default=None,
+        description="User ID from user.id",
+    )
 
     class Config:
-        extra = "allow"  # Allow additional fields not in the model
-
-    @field_validator("type", mode="before")
-    @classmethod
-    def validate_type(cls, v):
-        """Ensure type is present."""
-        if not v:
-            return "unknown"
-        return v
-
-    @classmethod
-    def from_payload(cls, payload: Dict[str, Any]) -> "FrameIOEvent":
-        """
-        Create FrameIOEvent from raw webhook payload.
-
-        Extracts IDs from nested objects while preserving the original payload.
-
-        Args:
-            payload: Raw webhook payload with nested structure
-
-        Returns:
-            FrameIOEvent with flattened structure
-        """
-        # Extract nested values
-        resource = payload.get("resource", {})
-        account = payload.get("account", {})
-        workspace = payload.get("workspace", {})
-        project = payload.get("project", {})
-        user = payload.get("user", {})
-
-        event = cls(
-            type=payload.get("type", "unknown"),
-            resource_id=resource.get("id", "unknown"),
-            resource_type=resource.get("type", "unknown"),
-            account_id=account.get("id"),
-            workspace_id=workspace.get("id"),
-            project_id=project.get("id"),
-            user_id=user.get("id"),
-        )
-
-        # Store original payload
-        event.raw_payload = payload
-
-        return event
-
-    @property
-    def event_type(self) -> str:
-        """Get the event type."""
-        return self.type
+        # Populate by field name when serializing (use event_type, not type)
+        populate_by_name = True
 
     def to_dict(self) -> Dict[str, Any]:
         """
         Convert to dictionary for serialization.
 
-        Returns the original payload if available, otherwise the flattened model.
+        Reconstructs the nested JSON structure that Frame.io sends.
+        This is important for Pub/Sub consumers who expect the original format.
         """
-        if self.raw_payload:
-            return self.raw_payload
-        return self.model_dump(mode="json")
+        return {
+            "type": self.event_type,
+            "resource": {
+                "id": self.resource_id,
+                "type": self.resource_type,
+            },
+            "account": {"id": self.account_id} if self.account_id else {},
+            "workspace": {"id": self.workspace_id} if self.workspace_id else {},
+            "project": {"id": self.project_id} if self.project_id else {},
+            "user": {"id": self.user_id} if self.user_id else {},
+        }

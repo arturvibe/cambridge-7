@@ -77,8 +77,8 @@ class WebhookService:
             Processing result with status and message ID
         """
         try:
-            # Parse into domain model
-            event = FrameIOEvent.from_payload(payload)
+            # Parse into domain model (Pydantic handles nested field extraction via validation_alias)
+            event = FrameIOEvent(**payload)
 
             logger.info(
                 f"Processing Frame.io event: {event.event_type} "
