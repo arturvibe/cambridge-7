@@ -1,4 +1,4 @@
-# CLAUDE.md - AI Assistant Guide
+# AGENTS.md - AI Assistant Guide
 
 FastAPI webhook receiver for Frame.io V4 → logs payloads to GCP Cloud Run → publishes to Pub/Sub → viewable via Cloud Logging.
 
@@ -230,7 +230,7 @@ terraform output pubsub_topic_name          # View Pub/Sub topic name
 
 ## Deployment
 
-**Branch pattern:** `claude/claude-md-<session-id>` (never push to main)
+**Branch pattern:** `agent/agents-md-<session-id>` (never push to main)
 
 **Process:** Commit → Tests auto-run → Commitlint validates → Manual deploy via Actions
 
