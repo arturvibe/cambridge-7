@@ -2,23 +2,59 @@
 
 FastAPI webhook receiver for Frame.io V4 → logs payloads to GCP Cloud Run → publishes to Pub/Sub → viewable via Cloud Logging.
 
-**Stack:** Python 3.11 • FastAPI 0.109.0 • google-cloud-logging • google-cloud-pubsub • Docker • GCP Cloud Run • Terraform
+**Stack:** Python 3.11 • FastAPI 0.109.0 • Pydantic v2 • google-cloud-logging • google-cloud-pubsub • Docker • GCP Cloud Run • Terraform
 
-**Flow:** `Frame.io → /api/v1/frameio/webhook → [Log to stdout + Publish to Pub/Sub] → Cloud Logging`
+**Flow:** `Frame.io → /api/v1/frameio/webhook → [Validate → Log → Publish to Pub/Sub] → Cloud Logging`
+
+## Architecture
+
+**Hexagonal Architecture (Ports & Adapters):**
+```
+┌─────────────────────────────────────────┐
+│ Driving Adapters (app/api/)             │
+│ - frameio.py: HTTP endpoint (dumb)      │
+└─────────────────┬───────────────────────┘
+                  ↓
+┌─────────────────────────────────────────┐
+│ Core Domain (app/core/)                 │
+│ - domain.py: FrameIOEvent model         │
+│ - services.py: Business logic (smart)   │
+│ - ports.py: EventPublisher interface    │
+│ - exceptions.py: Domain exceptions      │
+└─────────────────┬───────────────────────┘
+                  ↓
+┌─────────────────────────────────────────┐
+│ Driven Adapters (app/infrastructure/)   │
+│ - pubsub_publisher.py: Pub/Sub impl     │
+└─────────────────────────────────────────┘
+```
+
+**Separation of Concerns:**
+- **Adapters** (API/Infrastructure): HTTP ↔ Python translation, serialization
+- **Core Domain**: Pure business logic, domain models, ports (interfaces)
+- **Exception Handling**: Centralized in `app/main.py` (no try-except in adapters!)
 
 ## Structure
 
 **Core files:**
-- `app/main.py` - FastAPI app with webhook handling and Pub/Sub publishing
-- `app/pubsub_client.py` - Pub/Sub client wrapper (auto-detects emulator vs production)
+- `app/main.py` - FastAPI app wiring, dependency injection, centralized exception handlers
+- `app/api/frameio.py` - HTTP endpoint (dumb adapter, delegates to service)
+- `app/core/domain.py` - FrameIOEvent domain model (Pydantic v2)
+- `app/core/services.py` - Business logic (logging, publishing, validation)
+- `app/core/ports.py` - EventPublisher port (interface)
+- `app/core/exceptions.py` - Domain exceptions (PublisherError, InvalidWebhookError)
+- `app/infrastructure/pubsub_publisher.py` - Pub/Sub implementation
 - `app/logging_config.py` - Logging configuration with Cloud Run detection
-- `tests/test_main.py` - Unit tests for endpoints and Pub/Sub integration
-- `tests/test_pubsub_client.py` - Unit tests for Pub/Sub client (90%+ coverage total)
+- `tests/test_webhook.py` - Webhook endpoint tests
+- `tests/test_pubsub_integration.py` - Pub/Sub integration tests
+- `tests/test_pubsub_publisher.py` - Publisher unit tests (90%+ coverage)
+- `tests/test_health.py` - Health endpoint tests
+- `tests/test_security.py` - Security and edge case tests
+- `tests/test_lifecycle.py` - Application lifecycle tests
 - `Dockerfile` - Multi-stage build
 - `.github/workflows/` - CI/CD (commitlint, test, deploy)
 - `terraform/` - GCP infrastructure as code (includes Pub/Sub topic/subscription)
 - `docker-compose.yml` - Local dev environment with Pub/Sub emulator
-- `LOCAL_PUBSUB_TESTING.md` - Guide for testing Pub/Sub locally
 
 ## Development
 
@@ -66,22 +102,40 @@ Examples:
 ### Code Style
 - **Format:** black (88 char line length)
 - **Lint:** flake8, mypy
-- **FastAPI:** async/await, JSONResponse, type hints, docstrings
+- **FastAPI:**
+  - async/await, JSONResponse, type hints, docstrings
+  - Pydantic v2 models with `ConfigDict` (not deprecated `class Config`)
+  - Modern `lifespan` context manager (not deprecated `on_event`)
+  - Centralized exception handlers (no try-except in endpoints!)
+- **Architecture:**
+  - Dumb adapters: Just translate HTTP ↔ Python, delegate to service
+  - Smart services: All business logic (logging, validation, publishing)
+  - Domain objects: Pass FrameIOEvent to infrastructure (not dicts!)
+  - Serialization: Infrastructure concern (adapters handle JSON conversion)
 - **Logging:**
   - Config: `app/logging_config.py` with `setup_global_logging()`
   - Cloud Run: google-cloud-logging with trace correlation (detected via K_SERVICE env var)
   - Local/Test: Standard Python logging to stdout
-  - Structured JSON: Single log entry per webhook (see app/main.py:81-100)
-- **Tests:** 90%+ coverage, Test* classes, descriptive names, fixtures
-
-## Architecture
+  - Structured JSON: Single log entry per webhook (see app/core/services.py:60-78)
+- **Tests:** 90%+ coverage, Test* classes, descriptive names, fixtures, test contracts not implementation
 
 **Endpoints:**
 - `GET /` - Health check with service info
 - `GET /health` - Simple health check
-- `POST /api/v1/frameio/webhook` - Receives Frame.io webhooks, logs payload, publishes to Pub/Sub, returns 200 (includes pubsub_message_id in response if successful)
+- `POST /api/v1/frameio/webhook` - Receives Frame.io webhooks, validates, logs, publishes to Pub/Sub
+
+**HTTP Status Codes:**
+- `200 OK` - Event successfully published, returns `{"message_id": "..."}`
+- `422 Unprocessable Entity` - Invalid JSON or missing required fields (client error, do not retry)
+- `500 Internal Server Error` - Pub/Sub publishing failed (server error, Frame.io retries)
 
 **Frame.io payload:** `{type, resource: {type, id}, account: {id}, workspace: {id}, project: {id}, user: {id}}`
+
+**Error Handling:**
+- Centralized in `app/main.py` using `@app.exception_handler()`
+- `PublisherError` → 500 (Pub/Sub failures, Frame.io retries)
+- `RequestValidationError` → 422 (Invalid payload, Frame.io does not retry)
+- No try-except in endpoints or adapters!
 
 **Docker:** Multi-stage build → non-root user (appuser) → PYTHONUNBUFFERED=1 for Cloud Run
 
