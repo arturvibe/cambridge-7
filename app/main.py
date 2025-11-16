@@ -121,10 +121,12 @@ async def frameio_webhook(request: Request):
                     "event_type": event_type,
                     "resource_type": resource_type,
                     "resource_id": resource_id,
-                }
+                },
             )
             if pubsub_message_id:
-                logger.info(f"Published to Pub/Sub with message ID: {pubsub_message_id}")
+                logger.info(
+                    f"Published to Pub/Sub with message ID: {pubsub_message_id}"
+                )
         except Exception as e:
             # Don't fail the webhook if Pub/Sub publishing fails
             logger.error(f"Failed to publish to Pub/Sub: {str(e)}", exc_info=True)

@@ -18,7 +18,9 @@ class TestPubSubClient:
         """Test client initializes correctly."""
         mock_publisher = MagicMock()
         mock_publisher_class.return_value = mock_publisher
-        mock_publisher.topic_path.return_value = "projects/test-project/topics/test-topic"
+        mock_publisher.topic_path.return_value = (
+            "projects/test-project/topics/test-topic"
+        )
 
         with patch.dict(os.environ, {"GCP_PROJECT_ID": "test-project"}):
             client = PubSubClient(topic_name="test-topic")
@@ -39,11 +41,16 @@ class TestPubSubClient:
         """Test client detects Pub/Sub emulator."""
         mock_publisher = MagicMock()
         mock_publisher_class.return_value = mock_publisher
-        mock_publisher.topic_path.return_value = "projects/test-project/topics/test-topic"
+        mock_publisher.topic_path.return_value = (
+            "projects/test-project/topics/test-topic"
+        )
 
         with patch.dict(
             os.environ,
-            {"GCP_PROJECT_ID": "test-project", "PUBSUB_EMULATOR_HOST": "localhost:8085"},
+            {
+                "GCP_PROJECT_ID": "test-project",
+                "PUBSUB_EMULATOR_HOST": "localhost:8085",
+            },
         ):
             client = PubSubClient()
 
@@ -54,7 +61,9 @@ class TestPubSubClient:
         """Test client uses default topic name."""
         mock_publisher = MagicMock()
         mock_publisher_class.return_value = mock_publisher
-        mock_publisher.topic_path.return_value = "projects/test-project/topics/frameio-events"
+        mock_publisher.topic_path.return_value = (
+            "projects/test-project/topics/frameio-events"
+        )
 
         with patch.dict(os.environ, {"GCP_PROJECT_ID": "test-project"}):
             client = PubSubClient()
@@ -70,7 +79,9 @@ class TestPubSubPublish:
         """Test successful message publishing."""
         mock_publisher = MagicMock()
         mock_publisher_class.return_value = mock_publisher
-        mock_publisher.topic_path.return_value = "projects/test-project/topics/test-topic"
+        mock_publisher.topic_path.return_value = (
+            "projects/test-project/topics/test-topic"
+        )
 
         # Mock the future result
         mock_future = MagicMock()
@@ -95,7 +106,9 @@ class TestPubSubPublish:
 
         mock_publisher = MagicMock()
         mock_publisher_class.return_value = mock_publisher
-        mock_publisher.topic_path.return_value = "projects/test-project/topics/test-topic"
+        mock_publisher.topic_path.return_value = (
+            "projects/test-project/topics/test-topic"
+        )
 
         # Mock publish to raise NotFound
         mock_publisher.publish.side_effect = exceptions.NotFound("Topic not found")
@@ -114,10 +127,14 @@ class TestPubSubPublish:
 
         mock_publisher = MagicMock()
         mock_publisher_class.return_value = mock_publisher
-        mock_publisher.topic_path.return_value = "projects/test-project/topics/test-topic"
+        mock_publisher.topic_path.return_value = (
+            "projects/test-project/topics/test-topic"
+        )
 
         # Mock publish to raise PermissionDenied
-        mock_publisher.publish.side_effect = exceptions.PermissionDenied("Access denied")
+        mock_publisher.publish.side_effect = exceptions.PermissionDenied(
+            "Access denied"
+        )
 
         with patch.dict(os.environ, {"GCP_PROJECT_ID": "test-project"}):
             client = PubSubClient()
@@ -131,7 +148,9 @@ class TestPubSubPublish:
         """Test publish handles generic errors gracefully."""
         mock_publisher = MagicMock()
         mock_publisher_class.return_value = mock_publisher
-        mock_publisher.topic_path.return_value = "projects/test-project/topics/test-topic"
+        mock_publisher.topic_path.return_value = (
+            "projects/test-project/topics/test-topic"
+        )
 
         # Mock publish to raise generic exception
         mock_publisher.publish.side_effect = Exception("Network error")
@@ -148,7 +167,9 @@ class TestPubSubPublish:
         """Test publish works without explicit attributes."""
         mock_publisher = MagicMock()
         mock_publisher_class.return_value = mock_publisher
-        mock_publisher.topic_path.return_value = "projects/test-project/topics/test-topic"
+        mock_publisher.topic_path.return_value = (
+            "projects/test-project/topics/test-topic"
+        )
 
         mock_future = MagicMock()
         mock_future.result.return_value = "test-message-id"
@@ -166,7 +187,9 @@ class TestPubSubPublish:
         """Test closing the client."""
         mock_publisher = MagicMock()
         mock_publisher_class.return_value = mock_publisher
-        mock_publisher.topic_path.return_value = "projects/test-project/topics/test-topic"
+        mock_publisher.topic_path.return_value = (
+            "projects/test-project/topics/test-topic"
+        )
 
         with patch.dict(os.environ, {"GCP_PROJECT_ID": "test-project"}):
             client = PubSubClient()

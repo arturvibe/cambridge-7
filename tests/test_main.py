@@ -4,7 +4,7 @@ Unit tests for the Cambridge FastAPI webhook application.
 
 import os
 from datetime import datetime
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 from fastapi.testclient import TestClient
@@ -261,7 +261,9 @@ class TestPubSubIntegration:
         assert attributes["resource_id"] == "file-123"
 
     @patch("app.main.pubsub_client")
-    def test_webhook_continues_if_pubsub_fails(self, mock_pubsub_client, sample_payload):
+    def test_webhook_continues_if_pubsub_fails(
+        self, mock_pubsub_client, sample_payload
+    ):
         """Test webhook still succeeds if Pub/Sub publishing fails."""
         # Mock publish to raise an exception
         mock_pubsub_client.publish.side_effect = Exception("Pub/Sub error")
@@ -324,7 +326,7 @@ class TestApplicationLifecycle:
     @patch("app.main.pubsub_client")
     def test_shutdown_event_closes_pubsub_client(self, mock_pubsub_client):
         """Test shutdown event properly closes Pub/Sub client."""
-        with TestClient(app) as test_client:
+        with TestClient(app):
             # Client context manager triggers shutdown
             pass
 

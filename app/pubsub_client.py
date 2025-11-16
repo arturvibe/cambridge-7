@@ -23,7 +23,9 @@ class PubSubClient:
     - Local development: Uses Pub/Sub emulator (via PUBSUB_EMULATOR_HOST)
     """
 
-    def __init__(self, project_id: Optional[str] = None, topic_name: Optional[str] = None):
+    def __init__(
+        self, project_id: Optional[str] = None, topic_name: Optional[str] = None
+    ):
         """
         Initialize Pub/Sub publisher client.
 
@@ -48,7 +50,9 @@ class PubSubClient:
         else:
             logger.info(f"Pub/Sub publisher initialized for topic: {self.topic_path}")
 
-    def publish(self, message_data: Dict[str, Any], attributes: Optional[Dict[str, str]] = None) -> Optional[str]:
+    def publish(
+        self, message_data: Dict[str, Any], attributes: Optional[Dict[str, str]] = None
+    ) -> Optional[str]:
         """
         Publish a message to the Pub/Sub topic.
 
@@ -69,13 +73,11 @@ class PubSubClient:
 
             # Publish message
             future = self.publisher.publish(
-                self.topic_path,
-                message_bytes,
-                **attributes
+                self.topic_path, message_bytes, **attributes
             )
 
             # Wait for the publish to complete and get message ID
-            message_id = future.result(timeout=5.0)
+            message_id: str = future.result(timeout=5.0)
             logger.info(f"Published message to Pub/Sub: {message_id}")
 
             return message_id
