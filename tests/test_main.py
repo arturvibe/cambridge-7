@@ -134,12 +134,13 @@ class TestFrameIOWebhook:
                 headers={"Content-Type": "application/json"},
             )
 
-        # Invalid JSON that can't be parsed into a valid FrameIOEvent returns 500
-        assert response.status_code == 500
+        # Invalid JSON gets parsed as raw_body and creates event with "unknown" defaults
+        assert response.status_code == 200
         data = response.json()
-        assert data["status"] == "error"
+        assert data["status"] == "received"
+        assert data["event_type"] == "unknown"
 
-        # Should log errors
+        # Should log error about JSON parsing
         assert "Failed to parse JSON payload" in caplog.text
 
     def test_webhook_extracts_all_frameio_fields(self, sample_frameio_payload):
@@ -221,16 +222,18 @@ class TestEndpointSecurity:
         assert response.status_code == 200
 
     def test_webhook_handles_empty_payload(self):
-        """Test webhook handles empty payload."""
+        """Test webhook handles empty payload with defaults."""
         response = client.post(
             "/api/v1/frameio/webhook",
             json={},
             headers={"Content-Type": "application/json"},
         )
 
-        assert response.status_code == 500  # Will fail validation
+        # Empty payload creates event with "unknown" defaults
+        assert response.status_code == 200
         data = response.json()
-        assert data["status"] == "error"
+        assert data["status"] == "received"
+        assert data["event_type"] == "unknown"
 
 
 class TestPubSubIntegration:

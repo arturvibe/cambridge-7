@@ -78,7 +78,7 @@ class WebhookService:
         """
         try:
             # Parse into domain model
-            event = FrameIOEvent(**payload)
+            event = FrameIOEvent.from_payload(payload)
 
             logger.info(
                 f"Processing Frame.io event: {event.event_type} "
