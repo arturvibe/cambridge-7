@@ -17,6 +17,17 @@ class PublisherError(Exception):
     pass
 
 
+class FrameioClientError(Exception):
+    """
+    Raised when the Frame.io API client encounters an error.
+
+    This could be due to network issues, invalid API token, or other
+    API-related problems.
+    """
+
+    pass
+
+
 class InvalidWebhookError(Exception):
     """
     Raised when webhook event fails business validation.

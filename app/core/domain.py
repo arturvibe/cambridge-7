@@ -75,3 +75,11 @@ class FrameIOEvent(BaseModel):
             "project": {"id": self.project_id},
             "user": {"id": self.user_id},
         }
+
+
+class FrameioFile(BaseModel):
+    """
+    Represents a file retrieved from the Frame.io API.
+    """
+    name: str
+    url: str = Field(validation_alias=AliasPath("media_links", "original", "download_url"))
