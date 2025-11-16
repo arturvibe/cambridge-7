@@ -1,7 +1,9 @@
 """
 Core service for handling OAuth 2.0 authorization flows.
 """
+
 from abc import ABC, abstractmethod
+
 
 class OAuthProvider(ABC):
     """Abstract base class for an OAuth provider."""
@@ -15,6 +17,7 @@ class OAuthProvider(ABC):
     async def authorize_access_token(self, request):
         """Exchange the authorization code for an access token."""
         raise NotImplementedError
+
 
 class OAuthService:
     """

@@ -68,7 +68,8 @@ app = FastAPI(
 # Add SessionMiddleware for OAuth state management
 # IMPORTANT: In production, use a strong, securely managed secret key.
 app.add_middleware(
-    SessionMiddleware, secret_key=os.getenv("SESSION_SECRET_KEY", "a-secure-default-secret-for-dev")
+    SessionMiddleware,
+    secret_key=os.getenv("SESSION_SECRET_KEY", "a-secure-default-secret-for-dev"),
 )
 
 
