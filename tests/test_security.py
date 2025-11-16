@@ -42,14 +42,14 @@ class TestEndpointSecurity:
         assert response.status_code == 200
 
     def test_webhook_handles_empty_payload(self):
-        """Test webhook rejects empty payload (missing required fields)."""
+        """Test webhook returns 422 for empty payload (FastAPI automatic validation)."""
         response = client.post(
             "/api/v1/frameio/webhook",
             json={},
             headers={"Content-Type": "application/json"},
         )
 
-        # Empty payload returns 500 error (missing required fields)
-        assert response.status_code == 500
+        # FastAPI returns 422 Unprocessable Entity for missing required fields
+        assert response.status_code == 422
         data = response.json()
-        assert data["status"] == "error"
+        assert "detail" in data  # FastAPI's standard error format

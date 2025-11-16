@@ -61,22 +61,18 @@ class TestFrameIOWebhook:
         data = response.json()
         assert "message_id" in data
 
-    def test_webhook_handles_invalid_json(self, caplog):
-        """Test webhook handles invalid JSON gracefully."""
-        with caplog.at_level("ERROR"):
-            response = client.post(
-                "/api/v1/frameio/webhook",
-                content=b"invalid json{{{",
-                headers={"Content-Type": "application/json"},
-            )
+    def test_webhook_handles_invalid_json(self):
+        """Test webhook returns 422 for invalid JSON (FastAPI automatic validation)."""
+        response = client.post(
+            "/api/v1/frameio/webhook",
+            content=b"invalid json{{{",
+            headers={"Content-Type": "application/json"},
+        )
 
-        # Invalid JSON returns 500 error
-        assert response.status_code == 500
+        # FastAPI returns 422 Unprocessable Entity for invalid JSON
+        assert response.status_code == 422
         data = response.json()
-        assert data["status"] == "error"
-
-        # Should log error about JSON parsing
-        assert "Failed to parse JSON payload" in caplog.text
+        assert "detail" in data  # FastAPI's standard error format
 
     def test_webhook_extracts_all_frameio_fields(self, sample_frameio_payload):
         """Test webhook correctly extracts all Frame.io V4 fields."""
