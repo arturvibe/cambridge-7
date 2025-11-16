@@ -93,15 +93,24 @@ async def frameio_webhook(
         # Parse payload into domain model
         event = FrameIOEvent(**payload)
 
-        # Process webhook through core service
-        result = webhook_service.process_webhook(event)
+        # Process webhook through core service (returns message_id)
+        message_id = webhook_service.process_webhook(event)
 
-        # Add timestamp to response
-        result["timestamp"] = datetime.now(UTC).isoformat()
+        # Construct response
+        response_data = {
+            "status": "received",
+            "event_type": event.event_type,
+            "resource_type": event.resource_type,
+            "timestamp": datetime.now(UTC).isoformat(),
+        }
+
+        # Include message_id if available (for debugging)
+        if message_id:
+            response_data["message_id"] = message_id
 
         return JSONResponse(
             status_code=status.HTTP_200_OK,
-            content=result,
+            content=response_data,
         )
 
     except Exception as e:

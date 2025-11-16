@@ -263,7 +263,7 @@ class TestPubSubIntegration:
 
         # Verify response includes message ID
         assert data["status"] == "received"
-        assert data["pubsub_message_id"] == "msg-id-123"
+        assert data["message_id"] == "msg-id-123"
 
         # Verify publish was called with correct data
         mock_event_publisher.publish.assert_called_once()
@@ -294,7 +294,7 @@ class TestPubSubIntegration:
         assert response.status_code == 200
         data = response.json()
         assert data["status"] == "received"
-        assert "pubsub_message_id" not in data
+        assert "message_id" not in data
 
     def test_webhook_when_pubsub_disabled(self, sample_payload):
         """Test webhook works when Pub/Sub returns None."""
@@ -310,7 +310,7 @@ class TestPubSubIntegration:
         assert response.status_code == 200
         data = response.json()
         assert data["status"] == "received"
-        assert "pubsub_message_id" not in data
+        assert "message_id" not in data
 
     def test_webhook_pubsub_attributes_with_minimal_payload(self):
         """Test Pub/Sub attributes are set correctly for minimal payload."""
