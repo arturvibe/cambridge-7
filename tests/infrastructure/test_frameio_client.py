@@ -40,9 +40,7 @@ def test_get_asset_original_download_url_success(mock_client, client):
     mock_response = MagicMock()
     mock_response.status_code = 200
     mock_response.json.return_value = {
-        "media_links": {
-            "original": "https://example.com/original.mp4"
-        }
+        "media_links": {"original": "https://example.com/original.mp4"}
     }
     mock_response.raise_for_status.return_value = None
 
@@ -56,7 +54,7 @@ def test_get_asset_original_download_url_success(mock_client, client):
     assert url == "https://example.com/original.mp4"
     mock_http_client.get.assert_called_once_with(
         f"{BASE_URL}/assets/{TEST_ASSET_ID}",
-        headers={"Authorization": f"Bearer {TEST_TOKEN}"}
+        headers={"Authorization": f"Bearer {TEST_TOKEN}"},
     )
 
 
@@ -72,7 +70,10 @@ def test_get_asset_original_download_url_missing_key(mock_client, client):
     mock_http_client.get.return_value = mock_response
     mock_client.return_value.__enter__.return_value = mock_http_client
 
-    with pytest.raises(FrameioClientError, match=f"Original download URL not found for asset '{TEST_ASSET_ID}'."):
+    with pytest.raises(
+        FrameioClientError,
+        match=f"Original download URL not found for asset '{TEST_ASSET_ID}'.",
+    ):
         client.get_asset_original_download_url(asset_id=TEST_ASSET_ID)
 
 
@@ -90,7 +91,10 @@ def test_get_asset_original_download_url_http_error(mock_client, client):
     mock_http_client.get.return_value = mock_response
     mock_client.return_value.__enter__.return_value = mock_http_client
 
-    with pytest.raises(FrameioClientError, match=f"API request failed for asset '{TEST_ASSET_ID}': 404 Not Found"):
+    with pytest.raises(
+        FrameioClientError,
+        match=f"API request failed for asset '{TEST_ASSET_ID}': 404 Not Found",
+    ):
         client.get_asset_original_download_url(asset_id=TEST_ASSET_ID)
 
 
@@ -98,8 +102,13 @@ def test_get_asset_original_download_url_http_error(mock_client, client):
 def test_get_asset_original_download_url_network_error(mock_client, client):
     """Tests handling of network request errors."""
     mock_http_client = MagicMock()
-    mock_http_client.get.side_effect = httpx.RequestError("Network error", request=MagicMock())
+    mock_http_client.get.side_effect = httpx.RequestError(
+        "Network error", request=MagicMock()
+    )
     mock_client.return_value.__enter__.return_value = mock_http_client
 
-    with pytest.raises(FrameioClientError, match=f"Network error while fetching asset '{TEST_ASSET_ID}':"):
+    with pytest.raises(
+        FrameioClientError,
+        match=f"Network error while fetching asset '{TEST_ASSET_ID}':",
+    ):
         client.get_asset_original_download_url(asset_id=TEST_ASSET_ID)

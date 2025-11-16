@@ -49,13 +49,21 @@ class FrameioSourceClient:
 
             original_url = data.get("media_links", {}).get("original")
             if not original_url:
-                raise FrameioClientError(f"Original download URL not found for asset '{asset_id}'.")
+                raise FrameioClientError(
+                    f"Original download URL not found for asset '{asset_id}'."
+                )
 
             return original_url
 
         except httpx.HTTPStatusError as e:
-            raise FrameioClientError(f"API request failed for asset '{asset_id}': {e.response.status_code} {e.response.text}") from e
+            raise FrameioClientError(
+                f"API request failed for asset '{asset_id}': {e.response.status_code} {e.response.text}"
+            ) from e
         except httpx.RequestError as e:
-            raise FrameioClientError(f"Network error while fetching asset '{asset_id}': {e}") from e
+            raise FrameioClientError(
+                f"Network error while fetching asset '{asset_id}': {e}"
+            ) from e
         except Exception as e:
-            raise FrameioClientError(f"An unexpected error occurred for asset '{asset_id}': {e}") from e
+            raise FrameioClientError(
+                f"An unexpected error occurred for asset '{asset_id}': {e}"
+            ) from e
