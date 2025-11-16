@@ -74,9 +74,7 @@ class TestFrameIOWebhook:
         assert data["status"] == "error"
         assert "Invalid payload schema" in data["message"]
 
-    def test_webhook_extracts_all_frameio_fields(
-        self, sample_frameio_payload, caplog
-    ):
+    def test_webhook_extracts_all_frameio_fields(self, sample_frameio_payload, caplog):
         """Test webhook extracts all Frame.io V4 fields (logged)."""
         with caplog.at_level("INFO"):
             response = client.post(
