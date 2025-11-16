@@ -56,23 +56,7 @@ class FrameioWebhookService:
         Raises:
             PublisherError: If publishing fails or returns no message ID.
         """
-        log_extra = {
-            "event_type": event.event_type,
-            "resource_type": event.resource_type,
-            "resource_id": event.resource_id,
-            "account_id": event.account_id,
-            "workspace_id": event.workspace_id,
-            "project_id": event.project_id,
-            "user_id": event.user_id,
-            "user_agent": headers.get("user-agent", ""),
-            "client_ip": client_ip,
-            "headers": headers,
-            "payload": event.to_dict(),
-        }
-        logger.info(
-            "frame.io webhook received",
-            extra={"extra_fields": log_extra},
-        )
+        logger.info("frame.io webhook received")
 
         try:
             message_id = self.event_publisher.publish(event)
