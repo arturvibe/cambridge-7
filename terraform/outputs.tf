@@ -55,8 +55,8 @@ output "pubsub_topic_name" {
 }
 
 output "pubsub_subscription_name" {
-  description = "Name of the Pub/Sub subscription for testing"
-  value       = google_pubsub_subscription.frameio_webhooks_sub.name
+  description = "Name of the Pub/Sub subscription for debugging/testing"
+  value       = google_pubsub_subscription.frameio_webhooks_debug_sub.name
 }
 
 output "cloud_run_service_account_email" {
