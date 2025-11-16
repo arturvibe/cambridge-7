@@ -37,7 +37,9 @@ class GooglePhotosSinkClient:
             return service, creds
         except Exception as e:
             logger.error(f"Error refreshing token: {e}")
-            raise GooglePhotosAuthError("Failed to refresh Google Photos access token.") from e
+            raise GooglePhotosAuthError(
+                "Failed to refresh Google Photos access token."
+            ) from e
 
     def upload_photo(self, photo_bytes: bytes, file_name: str, description: str):
         service, creds = self._get_gphotos_service()
@@ -82,11 +84,15 @@ class GooglePhotosSinkClient:
                 return media_item
             else:
                 logger.error(f"Error creating media item: {status['message']}")
-                raise GooglePhotosUploadError(f"API failed to create media item: {status['message']}")
+                raise GooglePhotosUploadError(
+                    f"API failed to create media item: {status['message']}"
+                )
 
         except HttpError as e:
             logger.error(f"HttpError creating media item: {e}")
-            raise GooglePhotosUploadError("An HTTP error occurred while creating the media item.") from e
+            raise GooglePhotosUploadError(
+                "An HTTP error occurred while creating the media item."
+            ) from e
         except Exception as e:
             logger.error(f"An unexpected error occurred creating the media item: {e}")
             raise GooglePhotosUploadError("An unexpected error occurred.") from e
