@@ -2,12 +2,15 @@
 
 This guide explains how to test the Pub/Sub integration locally using the Google Cloud Pub/Sub emulator.
 
-## Quick Start with Docker Compose
+## Recommended: Docker Compose (One Command)
 
-The easiest way to test locally is using Docker Compose, which automatically starts both the Pub/Sub emulator and the application:
+**This is the easiest and recommended way** - it automatically:
+- Starts the Pub/Sub emulator
+- Creates the `frameio-events` topic and `frameio-events-sub` subscription
+- Runs the application with the correct environment variables
 
 ```bash
-# Start services (emulator + application)
+# Start everything (emulator + application)
 docker-compose up
 
 # In another terminal, send a test webhook
@@ -18,6 +21,8 @@ curl -X POST http://localhost:8080/api/v1/frameio/webhook \
 # Pull and view messages from Pub/Sub
 python scripts/pull-pubsub-messages.py
 ```
+
+That's it! Everything is set up automatically.
 
 ## Manual Setup (Without Docker Compose)
 
@@ -36,7 +41,7 @@ In a new terminal:
 # Export emulator host
 export PUBSUB_EMULATOR_HOST=localhost:8085
 export GCP_PROJECT_ID=cambridge-local
-export PUBSUB_TOPIC_NAME=frameio-webhooks
+export PUBSUB_TOPIC_NAME=frameio-events
 
 # Run setup script
 ./scripts/setup-pubsub-emulator.sh
@@ -50,8 +55,7 @@ In another terminal:
 # Set environment variables
 export PUBSUB_EMULATOR_HOST=localhost:8085
 export GCP_PROJECT_ID=cambridge-local
-export PUBSUB_TOPIC_NAME=frameio-webhooks
-export PUBSUB_ENABLED=true
+export PUBSUB_TOPIC_NAME=frameio-events
 
 # Run application
 python app/main.py
@@ -95,30 +99,20 @@ pytest tests/test_main.py -v
 
 ## Environment Variables
 
-Create a `.env` file (see `.env.example`) with these variables:
+The application requires these environment variables:
 
 ```bash
-# GCP Project ID (use "cambridge-local" for emulator)
+# GCP Project ID (use "cambridge-local" for local emulator)
 GCP_PROJECT_ID=cambridge-local
 
-# Pub/Sub topic name
-PUBSUB_TOPIC_NAME=frameio-webhooks
+# Pub/Sub topic name (optional, defaults to "frameio-events")
+PUBSUB_TOPIC_NAME=frameio-events
 
-# Enable/disable Pub/Sub publishing
-PUBSUB_ENABLED=true
-
-# Emulator host (leave unset for production)
+# Emulator host (set for local development, unset for production)
 PUBSUB_EMULATOR_HOST=localhost:8085
 ```
 
-## Disabling Pub/Sub
-
-To test without Pub/Sub:
-
-```bash
-export PUBSUB_ENABLED=false
-python app/main.py
-```
+See `.env.example` for a complete template.
 
 ## Troubleshooting
 
@@ -148,15 +142,14 @@ In production (Cloud Run), the application automatically:
 Required environment variables in Cloud Run:
 ```bash
 GCP_PROJECT_ID=your-project-id
-PUBSUB_TOPIC_NAME=frameio-webhooks
-PUBSUB_ENABLED=true
+PUBSUB_TOPIC_NAME=frameio-events
 ```
 
 ## Monitoring Messages in Production
 
 ```bash
 # View messages in GCP
-gcloud pubsub subscriptions pull frameio-webhooks-sub --limit=10 --auto-ack
+gcloud pubsub subscriptions pull frameio-events-sub --limit=10 --auto-ack
 
 # Stream logs
 gcloud logging tail "resource.type=cloud_run_revision AND resource.labels.service_name=cambridge"

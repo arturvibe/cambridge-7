@@ -27,33 +27,14 @@ FastAPI webhook receiver for Frame.io V4 → logs payloads to GCP Cloud Run → 
 pip install -r requirements-dev.txt
 pre-commit install  # Install git hooks for auto-formatting
 
-# Run locally
-python app/main.py  # http://localhost:8080
+# Run locally with Pub/Sub emulator (recommended)
+docker-compose up  # Starts emulator, sets up topics, and runs app at http://localhost:8080
 
 # Test
 pytest --cov=app --cov-report=term-missing  # Must maintain 90%+ coverage
 
 # Docker
 docker build -t cambridge . && docker run -p 8080:8080 cambridge
-
-# Docker Compose (with Pub/Sub emulator)
-docker-compose up
-
-# Test Pub/Sub locally (see LOCAL_PUBSUB_TESTING.md for details)
-# Terminal 1: Start Pub/Sub emulator
-gcloud beta emulators pubsub start --host-port=localhost:8085 --project=cambridge-local
-
-# Terminal 2: Setup topic/subscription
-export PUBSUB_EMULATOR_HOST=localhost:8085
-./scripts/setup-pubsub-emulator.sh
-
-# Terminal 3: Run app with emulator
-export PUBSUB_EMULATOR_HOST=localhost:8085
-export GCP_PROJECT_ID=cambridge-local
-python app/main.py
-
-# Terminal 4: Pull messages from Pub/Sub
-python scripts/pull-pubsub-messages.py
 ```
 
 **Pre-commit hooks:** Auto-format Python (black) and Terraform files before commit
@@ -108,8 +89,8 @@ Examples:
 - Service: `cambridge` (europe-west1, 512Mi, 1 CPU, max 1 instance)
 - Artifact Registry for images (tags: `<short-sha>`, `latest`, `deployed-<timestamp>`)
   - Cleanup policy: keeps 7 most recent versions
-- Pub/Sub topic: `frameio-webhooks` (for webhook event distribution)
-- Pub/Sub subscription: `frameio-webhooks-sub` (7-day retention, for testing/monitoring)
+- Pub/Sub topic: `frameio-events` (for webhook event distribution)
+- Pub/Sub subscription: `frameio-events-sub` (7-day retention, for testing/monitoring)
 - Service accounts:
   - GitHub Actions (CI/CD deployment)
   - Cloud Run (Pub/Sub publisher role)
@@ -125,10 +106,9 @@ Examples:
 
 **Pub/Sub Architecture:**
 - **Client:** `app/pubsub_client.py` (auto-detects emulator via `PUBSUB_EMULATOR_HOST`)
-- **Publishing:** Webhook payloads published with attributes (event_type, resource_type, resource_id)
+- **Publishing:** Webhook payloads published to `frameio-events` topic with attributes (event_type, resource_type, resource_id)
 - **Error Handling:** Pub/Sub failures don't affect webhook response (logged but not returned as errors)
-- **Enable/Disable:** Set `PUBSUB_ENABLED=false` to disable publishing
-- **Local Development:** Automatic emulator support for testing without GCP
+- **Local Development:** `docker-compose up` automatically starts emulator and creates topic/subscription
 - **Production:** Uses Cloud Run service account with `roles/pubsub.publisher`
 
 ## Workflow
@@ -145,7 +125,7 @@ Examples:
 - Add endpoint: app/main.py + tests/test_main.py + README + maintain 90% coverage
 - Modify logging: Edit `app/logging_config.py` (K_SERVICE detection for Cloud Run)
 - Modify Pub/Sub: Edit `app/pubsub_client.py` + update tests in tests/test_pubsub_client.py
-- Add Pub/Sub consumer: Create new service + subscribe to `frameio-webhooks-sub`
+- Add Pub/Sub consumer: Create new service + subscribe to `frameio-events-sub`
 
 **GitHub Actions best practices:**
 - Use `pull_request` trigger only for PR checks (not both `push` and `pull_request`)
@@ -181,13 +161,12 @@ gcloud logging tail "resource.type=cloud_run_revision AND resource.labels.servic
 gcloud artifacts docker tags list europe-west1-docker.pkg.dev/$PROJECT_ID/cambridge-repo/cambridge
 
 # Pub/Sub (local testing with emulator)
-docker-compose up                            # Start app + Pub/Sub emulator
-./scripts/setup-pubsub-emulator.sh          # Setup topic/subscription
-python scripts/pull-pubsub-messages.py      # Pull messages from subscription
+docker-compose up                            # Start app + Pub/Sub emulator (auto-creates topics)
+python scripts/pull-pubsub-messages.py      # Pull messages from frameio-events-sub
 
 # Pub/Sub (production)
-gcloud pubsub subscriptions pull frameio-webhooks-sub --limit=10 --auto-ack
-gcloud pubsub topics publish frameio-webhooks --message='{"test": "message"}'
+gcloud pubsub subscriptions pull frameio-events-sub --limit=10 --auto-ack
+gcloud pubsub topics publish frameio-events --message='{"test": "message"}'
 
 # Terraform
 cd terraform && terraform init && terraform apply
@@ -209,9 +188,8 @@ terraform output pubsub_topic_name          # View Pub/Sub topic name
 5. **Rollback:** If validation fails, deployment aborts (old revision keeps serving traffic)
 
 **Environment Variables (Cloud Run):**
-- `GCP_PROJECT_ID` - GCP project ID (required for Pub/Sub)
-- `PUBSUB_TOPIC_NAME` - Pub/Sub topic name (default: `frameio-webhooks`)
-- `PUBSUB_ENABLED` - Enable/disable Pub/Sub publishing (default: `true`)
+- `GCP_PROJECT_ID` - GCP project ID (required)
+- `PUBSUB_TOPIC_NAME` - Pub/Sub topic name (default: `frameio-events`)
 - `PUBSUB_EMULATOR_HOST` - Pub/Sub emulator host (local dev only, e.g., `localhost:8085`)
 - `K_SERVICE` - Auto-set by Cloud Run (triggers structured logging)
 

@@ -11,9 +11,36 @@ services:
       - PUBSUB_PROJECT_ID=cambridge-local
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8085"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # Initialize Pub/Sub topic and subscription
+  pubsub-init:
+    image: curlimages/curl:latest
+    environment:
+      - PUBSUB_EMULATOR_HOST=pubsub-emulator:8085
+      - GCP_PROJECT_ID=cambridge-local
+      - PUBSUB_TOPIC_NAME=frameio-events
+    depends_on:
+      pubsub-emulator:
+        condition: service_healthy
+    command: >
+      sh -c '
+        echo "Waiting for emulator to be fully ready..." &&
+        sleep 2 &&
+        echo "Creating topic: frameio-events" &&
+        curl -s -X PUT "http://pubsub-emulator:8085/v1/projects/cambridge-local/topics/frameio-events" \
+          -H "Content-Type: application/json" \
+          -d "{}" &&
+        echo "" &&
+        echo "Creating subscription: frameio-events-sub" &&
+        curl -s -X PUT "http://pubsub-emulator:8085/v1/projects/cambridge-local/subscriptions/frameio-events-sub" \
+          -H "Content-Type: application/json" \
+          -d "{\"topic\": \"projects/cambridge-local/topics/frameio-events\"}" &&
+        echo "" &&
+        echo "Pub/Sub setup complete!"
+      '
 
   # Cambridge application
   cambridge:
@@ -23,10 +50,11 @@ services:
     environment:
       - PUBSUB_EMULATOR_HOST=pubsub-emulator:8085
       - GCP_PROJECT_ID=cambridge-local
-      - PUBSUB_TOPIC_NAME=frameio-webhooks
-      - PUBSUB_ENABLED=true
+      - PUBSUB_TOPIC_NAME=frameio-events
     depends_on:
       pubsub-emulator:
         condition: service_healthy
+      pubsub-init:
+        condition: service_completed_successfully
     volumes:
       - ./app:/app/app:ro

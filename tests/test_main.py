@@ -10,7 +10,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 # Mock Pub/Sub before importing app
-with patch.dict(os.environ, {"PUBSUB_ENABLED": "false"}):
+with patch.dict(os.environ, {"GCP_PROJECT_ID": "test-project"}):
     from app.main import app
 
 client = TestClient(app)

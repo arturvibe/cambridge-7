@@ -32,38 +32,21 @@ class PubSubClient:
             topic_name: Pub/Sub topic name (defaults to PUBSUB_TOPIC_NAME env var)
         """
         self.project_id = project_id or os.getenv("GCP_PROJECT_ID")
-        self.topic_name = topic_name or os.getenv("PUBSUB_TOPIC_NAME", "frameio-webhooks")
-        self.enabled = os.getenv("PUBSUB_ENABLED", "true").lower() == "true"
+        self.topic_name = topic_name or os.getenv("PUBSUB_TOPIC_NAME", "frameio-events")
 
         # Check if using emulator
         self.emulator_host = os.getenv("PUBSUB_EMULATOR_HOST")
 
-        if not self.enabled:
-            logger.info("Pub/Sub publishing is disabled (PUBSUB_ENABLED=false)")
-            self.publisher = None
-            self.topic_path = None
-            return
-
         if not self.project_id:
-            logger.warning("GCP_PROJECT_ID not set, Pub/Sub publishing disabled")
-            self.enabled = False
-            self.publisher = None
-            self.topic_path = None
-            return
+            raise ValueError("GCP_PROJECT_ID must be set for Pub/Sub client")
 
-        try:
-            self.publisher = pubsub_v1.PublisherClient()
-            self.topic_path = self.publisher.topic_path(self.project_id, self.topic_name)
+        self.publisher = pubsub_v1.PublisherClient()
+        self.topic_path = self.publisher.topic_path(self.project_id, self.topic_name)
 
-            if self.emulator_host:
-                logger.info(f"Using Pub/Sub emulator at {self.emulator_host}")
-            else:
-                logger.info(f"Pub/Sub publisher initialized for topic: {self.topic_path}")
-        except Exception as e:
-            logger.error(f"Failed to initialize Pub/Sub client: {str(e)}")
-            self.enabled = False
-            self.publisher = None
-            self.topic_path = None
+        if self.emulator_host:
+            logger.info(f"Using Pub/Sub emulator at {self.emulator_host}")
+        else:
+            logger.info(f"Pub/Sub publisher initialized for topic: {self.topic_path}")
 
     def publish(self, message_data: Dict[str, Any], attributes: Optional[Dict[str, str]] = None) -> Optional[str]:
         """
@@ -74,12 +57,8 @@ class PubSubClient:
             attributes: Optional message attributes (metadata)
 
         Returns:
-            Message ID if successful, None if failed or disabled
+            Message ID if successful, None if failed
         """
-        if not self.enabled or not self.publisher:
-            logger.debug("Pub/Sub publishing skipped (disabled or not initialized)")
-            return None
-
         try:
             # Convert message to JSON bytes
             message_bytes = json.dumps(message_data, default=str).encode("utf-8")

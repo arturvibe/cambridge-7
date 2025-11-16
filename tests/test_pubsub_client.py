@@ -14,8 +14,8 @@ class TestPubSubClient:
     """Test PubSubClient initialization and configuration."""
 
     @patch("app.pubsub_client.pubsub_v1.PublisherClient")
-    def test_client_initialization_enabled(self, mock_publisher_class):
-        """Test client initializes correctly when enabled."""
+    def test_client_initialization(self, mock_publisher_class):
+        """Test client initializes correctly."""
         mock_publisher = MagicMock()
         mock_publisher_class.return_value = mock_publisher
         mock_publisher.topic_path.return_value = "projects/test-project/topics/test-topic"
@@ -23,30 +23,16 @@ class TestPubSubClient:
         with patch.dict(os.environ, {"GCP_PROJECT_ID": "test-project"}):
             client = PubSubClient(topic_name="test-topic")
 
-        assert client.enabled is True
         assert client.project_id == "test-project"
         assert client.topic_name == "test-topic"
         assert client.publisher is not None
 
-    @patch("app.pubsub_client.pubsub_v1.PublisherClient")
-    def test_client_disabled_via_env_var(self, mock_publisher_class):
-        """Test client is disabled when PUBSUB_ENABLED=false."""
-        with patch.dict(os.environ, {"PUBSUB_ENABLED": "false", "GCP_PROJECT_ID": "test-project"}):
-            client = PubSubClient()
-
-        assert client.enabled is False
-        assert client.publisher is None
-        mock_publisher_class.assert_not_called()
-
-    @patch("app.pubsub_client.pubsub_v1.PublisherClient")
-    def test_client_disabled_missing_project_id(self, mock_publisher_class):
-        """Test client is disabled when GCP_PROJECT_ID is not set."""
+    def test_client_missing_project_id_raises_error(self):
+        """Test client raises ValueError when GCP_PROJECT_ID is not set."""
         with patch.dict(os.environ, {}, clear=True):
             # Clear environment and don't pass project_id
-            client = PubSubClient()
-
-        assert client.enabled is False
-        assert client.publisher is None
+            with pytest.raises(ValueError, match="GCP_PROJECT_ID must be set"):
+                PubSubClient()
 
     @patch("app.pubsub_client.pubsub_v1.PublisherClient")
     def test_client_detects_emulator(self, mock_publisher_class):
@@ -62,18 +48,18 @@ class TestPubSubClient:
             client = PubSubClient()
 
         assert client.emulator_host == "localhost:8085"
-        assert client.enabled is True
 
     @patch("app.pubsub_client.pubsub_v1.PublisherClient")
-    def test_client_initialization_failure(self, mock_publisher_class):
-        """Test client handles initialization failures gracefully."""
-        mock_publisher_class.side_effect = Exception("Connection failed")
+    def test_client_default_topic_name(self, mock_publisher_class):
+        """Test client uses default topic name."""
+        mock_publisher = MagicMock()
+        mock_publisher_class.return_value = mock_publisher
+        mock_publisher.topic_path.return_value = "projects/test-project/topics/frameio-events"
 
         with patch.dict(os.environ, {"GCP_PROJECT_ID": "test-project"}):
             client = PubSubClient()
 
-        assert client.enabled is False
-        assert client.publisher is None
+        assert client.topic_name == "frameio-events"
 
 
 class TestPubSubPublish:
@@ -101,17 +87,6 @@ class TestPubSubPublish:
 
         assert message_id == "test-message-id-123"
         mock_publisher.publish.assert_called_once()
-
-    @patch("app.pubsub_client.pubsub_v1.PublisherClient")
-    def test_publish_when_disabled(self, mock_publisher_class):
-        """Test publish returns None when client is disabled."""
-        with patch.dict(os.environ, {"PUBSUB_ENABLED": "false", "GCP_PROJECT_ID": "test-project"}):
-            client = PubSubClient()
-
-        message_data = {"type": "test.event"}
-        message_id = client.publish(message_data)
-
-        assert message_id is None
 
     @patch("app.pubsub_client.pubsub_v1.PublisherClient")
     def test_publish_handles_not_found_error(self, mock_publisher_class):
@@ -199,12 +174,3 @@ class TestPubSubPublish:
         client.close()
 
         mock_publisher.stop.assert_called_once()
-
-    @patch("app.pubsub_client.pubsub_v1.PublisherClient")
-    def test_close_when_disabled(self, mock_publisher_class):
-        """Test closing client when it's disabled doesn't raise error."""
-        with patch.dict(os.environ, {"PUBSUB_ENABLED": "false"}):
-            client = PubSubClient()
-
-        # Should not raise an error
-        client.close()

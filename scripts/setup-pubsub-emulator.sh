@@ -5,7 +5,7 @@
 set -e
 
 PROJECT_ID="${GCP_PROJECT_ID:-cambridge-local}"
-TOPIC_NAME="${PUBSUB_TOPIC_NAME:-frameio-webhooks}"
+TOPIC_NAME="${PUBSUB_TOPIC_NAME:-frameio-events}"
 SUBSCRIPTION_NAME="${TOPIC_NAME}-sub"
 EMULATOR_HOST="${PUBSUB_EMULATOR_HOST:-localhost:8085}"
 

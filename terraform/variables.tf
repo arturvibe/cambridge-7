@@ -28,9 +28,9 @@ variable "artifact_registry_repo_name" {
 }
 
 variable "pubsub_topic_name" {
-  description = "Pub/Sub topic name for Frame.io webhooks"
+  description = "Pub/Sub topic name for Frame.io events"
   type        = string
-  default     = "frameio-webhooks"
+  default     = "frameio-events"
 }
 
 variable "cloud_run_sa_name" {

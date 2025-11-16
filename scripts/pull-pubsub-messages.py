@@ -11,7 +11,7 @@ from google.cloud import pubsub_v1
 
 # Configuration
 PROJECT_ID = os.getenv("GCP_PROJECT_ID", "cambridge-local")
-SUBSCRIPTION_NAME = os.getenv("PUBSUB_SUBSCRIPTION_NAME", "frameio-webhooks-sub")
+SUBSCRIPTION_NAME = os.getenv("PUBSUB_SUBSCRIPTION_NAME", "frameio-events-sub")
 MAX_MESSAGES = int(os.getenv("MAX_MESSAGES", "10"))
 
 # If using emulator, set PUBSUB_EMULATOR_HOST environment variable
