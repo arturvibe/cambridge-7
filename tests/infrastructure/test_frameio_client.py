@@ -1,13 +1,13 @@
 """
 Unit tests for the Frame.io API client.
 """
-from typing import Tuple
 import pytest
 import httpx
 from unittest.mock import patch, MagicMock
 
 from app.infrastructure.frameio_client import FrameioSourceClient
 from app.core.exceptions import FrameioClientError
+from app.infrastructure.models import FrameioFile
 
 # Constants for testing
 TEST_TOKEN = "test_token"
@@ -37,12 +37,13 @@ def test_get_file_url_success(client):
         }
         mock_http_client.return_value.__enter__.return_value.get.return_value = mock_response
 
-        url, filename = client.get_file_url(
+        frameio_file = client.get_file_url(
             token=TEST_TOKEN, account_id=TEST_ACCOUNT_ID, file_id=TEST_FILE_ID
         )
 
-        assert url == "https://example.com/original.mp4"
-        assert filename == "original.mp4"
+        assert isinstance(frameio_file, FrameioFile)
+        assert frameio_file.url == "https://example.com/original.mp4"
+        assert frameio_file.name == "original.mp4"
         mock_http_client.return_value.__enter__.return_value.get.assert_called_once_with(
             f"{BASE_URL}/accounts/{TEST_ACCOUNT_ID}/files/{TEST_FILE_ID}",
             headers={"Authorization": f"Bearer {TEST_TOKEN}"},

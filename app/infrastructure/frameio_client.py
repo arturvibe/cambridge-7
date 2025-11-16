@@ -1,10 +1,10 @@
 """
 Client for interacting with the Frame.io API.
 """
-from typing import Tuple
 import httpx
 
 from app.core.exceptions import FrameioClientError
+from app.infrastructure.models import FrameioFile
 
 
 class FrameioSourceClient:
@@ -20,7 +20,7 @@ class FrameioSourceClient:
         """
         pass
 
-    def get_file_url(self, token: str, account_id: str, file_id: str) -> Tuple[str, str]:
+    def get_file_url(self, token: str, account_id: str, file_id: str) -> FrameioFile:
         """
         Retrieves the original download URL for a given asset ID.
 
@@ -30,7 +30,7 @@ class FrameioSourceClient:
             file_id: The ID of the file.
 
         Returns:
-            A tuple containing the original download URL and the original filename.
+            A FrameioFile object containing the URL and filename.
 
         Raises:
             FrameioClientError: If the API call fails or the URL is not found.
@@ -60,7 +60,7 @@ class FrameioSourceClient:
                     f"Original filename not found for asset '{file_id}'."
                 )
 
-            return original_url, original_filename
+            return FrameioFile(url=original_url, name=original_filename)
 
         except httpx.HTTPStatusError as e:
             raise FrameioClientError(
