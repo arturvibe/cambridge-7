@@ -7,6 +7,7 @@ import json
 import logging
 import os
 from datetime import datetime, UTC
+from functools import lru_cache
 
 # Configure logging FIRST, before other local imports
 from app.logging_config import setup_global_logging
@@ -14,7 +15,7 @@ from app.logging_config import setup_global_logging
 setup_global_logging()
 
 # Now import other modules (they will use the configured logging)
-from fastapi import FastAPI, Request, status
+from fastapi import Depends, FastAPI, Request, status
 from fastapi.responses import JSONResponse
 
 from app.pubsub_client import PubSubClient
@@ -27,15 +28,28 @@ app = FastAPI(
     version="1.0.0",
 )
 
-# Initialize Pub/Sub client (will auto-detect emulator or production)
-pubsub_client = PubSubClient()
+
+@lru_cache()
+def get_pubsub_client() -> PubSubClient:
+    """
+    Dependency that provides the Pub/Sub client.
+
+    Uses lru_cache to ensure singleton behavior - the same instance
+    is returned for all requests.
+    """
+    return PubSubClient()
 
 
 @app.on_event("shutdown")
 async def shutdown_event():
     """Cleanup on application shutdown."""
     logger.info("Shutting down application...")
-    pubsub_client.close()
+    try:
+        # Close the Pub/Sub client (handles both real and mocked clients)
+        get_pubsub_client().close()
+    except Exception as e:
+        # Gracefully handle shutdown errors (e.g., client not initialized)
+        logger.warning(f"Error closing Pub/Sub client during shutdown: {e}")
 
 
 @app.get("/")
@@ -55,7 +69,9 @@ async def health():
 
 
 @app.post("/api/v1/frameio/webhook")
-async def frameio_webhook(request: Request):
+async def frameio_webhook(
+    request: Request, pubsub_client: PubSubClient = Depends(get_pubsub_client)
+):
     """
     Receive Frame.io webhook and log payload to stdout.
 
