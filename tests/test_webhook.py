@@ -2,8 +2,6 @@
 Tests for Frame.io webhook endpoint.
 """
 
-from unittest.mock import patch
-
 from tests.conftest import client
 
 
@@ -76,8 +74,10 @@ class TestFrameIOWebhook:
         assert data["status"] == "error"
         assert "Invalid payload schema" in data["message"]
 
-    def test_webhook_extracts_all_frameio_fields(self, sample_frameio_payload, caplog):
-        """Test webhook correctly extracts all Frame.io V4 fields (logged by service)."""
+    def test_webhook_extracts_all_frameio_fields(
+        self, sample_frameio_payload, caplog
+    ):
+        """Test webhook extracts all Frame.io V4 fields (logged)."""
         with caplog.at_level("INFO"):
             response = client.post(
                 "/api/v1/frameio/webhook",
@@ -87,7 +87,7 @@ class TestFrameIOWebhook:
 
         assert response.status_code == 200
 
-        # Verify fields were logged in structured JSON (service logs to app.core.services)
+        # Verify fields were logged in structured JSON
         log_text = caplog.text
         assert "resource.asset_created" in log_text
         assert "asset" in log_text

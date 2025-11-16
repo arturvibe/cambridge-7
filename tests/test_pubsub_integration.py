@@ -55,7 +55,7 @@ class TestPubSubIntegration:
         assert event.resource_id == "file-123"
 
     def test_webhook_returns_500_if_pubsub_fails(self, sample_payload):
-        """Test webhook returns 500 if Pub/Sub publishing fails so Frame.io can retry."""
+        """Test webhook returns 500 if Pub/Sub fails (Frame.io retries)."""
         # Configure mock to raise an exception
         mock_event_publisher.publish.side_effect = Exception("Pub/Sub error")
 

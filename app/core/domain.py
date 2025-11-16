@@ -7,7 +7,7 @@ any infrastructure or delivery mechanism.
 
 from typing import Any, Dict
 
-from pydantic import AliasPath, BaseModel, Field
+from pydantic import AliasPath, BaseModel, ConfigDict, Field
 
 
 class FrameIOEvent(BaseModel):
@@ -51,9 +51,11 @@ class FrameIOEvent(BaseModel):
         description="User ID from user.id",
     )
 
-    class Config:
+    # Pydantic v2 configuration
+    model_config = ConfigDict(
         # Populate by field name when serializing (use event_type, not type)
-        populate_by_name = True
+        populate_by_name=True,
+    )
 
     def to_dict(self) -> Dict[str, Any]:
         """
