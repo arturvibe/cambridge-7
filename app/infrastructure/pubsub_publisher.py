@@ -1,22 +1,24 @@
 """
-Pub/Sub client for publishing Frame.io webhook events.
-Supports both production (GCP) and local development (emulator).
+Google Cloud Pub/Sub event publisher implementation.
+
+This is a driven adapter that implements the EventPublisher port
+defined in the core domain.
 """
 
 import json
 import logging
 import os
-from typing import Dict, Any, Optional
+from typing import Any, Dict, Optional
 
-from google.cloud import pubsub_v1
 from google.api_core import exceptions
+from google.cloud import pubsub_v1
 
 logger = logging.getLogger(__name__)
 
 
-class PubSubClient:
+class GooglePubSubPublisher:
     """
-    Client for publishing messages to Google Cloud Pub/Sub.
+    Concrete implementation of EventPublisher using Google Cloud Pub/Sub.
 
     Automatically detects and configures for:
     - Production: Uses GCP Pub/Sub service
@@ -27,7 +29,7 @@ class PubSubClient:
         self, project_id: Optional[str] = None, topic_name: Optional[str] = None
     ):
         """
-        Initialize Pub/Sub publisher client.
+        Initialize Google Cloud Pub/Sub publisher.
 
         Args:
             project_id: GCP project ID (defaults to GCP_PROJECT_ID env var)
@@ -40,7 +42,7 @@ class PubSubClient:
         self.emulator_host = os.getenv("PUBSUB_EMULATOR_HOST")
 
         if not self.project_id:
-            raise ValueError("GCP_PROJECT_ID must be set for Pub/Sub client")
+            raise ValueError("GCP_PROJECT_ID must be set for Pub/Sub publisher")
 
         self.publisher = pubsub_v1.PublisherClient()
         self.topic_path = self.publisher.topic_path(self.project_id, self.topic_name)
@@ -92,7 +94,7 @@ class PubSubClient:
             logger.error(f"Failed to publish message to Pub/Sub: {str(e)}")
             return None
 
-    def close(self):
+    def close(self) -> None:
         """Close the publisher client."""
         if self.publisher:
             # Flush any pending messages

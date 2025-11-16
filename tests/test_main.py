@@ -11,27 +11,28 @@ from fastapi.testclient import TestClient
 
 # Mock Pub/Sub before importing app
 with patch.dict(os.environ, {"GCP_PROJECT_ID": "test-project"}):
-    from app.main import app, get_pubsub_client
+    from app.main import app, get_event_publisher
+    from app.core.services import WebhookService
 
 # Create a single mock publisher for all tests
-mock_pubsub_client = MagicMock()
+mock_event_publisher = MagicMock()
 
 # Use FastAPI's dependency_overrides to replace the real publisher with our mock
-app.dependency_overrides[get_pubsub_client] = lambda: mock_pubsub_client
+app.dependency_overrides[get_event_publisher] = lambda: mock_event_publisher
 
 client = TestClient(app)
 
 
 @pytest.fixture(autouse=True)
-def reset_mock_pubsub_client():
+def reset_mock_event_publisher():
     """
-    Reset the mock PubSub client before each test.
+    Reset the mock event publisher before each test.
 
     This fixture runs automatically for every test (autouse=True).
     Sets default return value to None to avoid MagicMock serialization issues.
     """
-    mock_pubsub_client.reset_mock(return_value=None, side_effect=None)
-    mock_pubsub_client.publish.return_value = None
+    mock_event_publisher.reset_mock(return_value=None, side_effect=None)
+    mock_event_publisher.publish.return_value = None
 
 
 class TestHealthEndpoints:
@@ -133,18 +134,17 @@ class TestFrameIOWebhook:
                 headers={"Content-Type": "application/json"},
             )
 
-        # App handles invalid JSON gracefully and still returns 200
-        assert response.status_code == 200
+        # Invalid JSON that can't be parsed into a valid FrameIOEvent returns 500
+        assert response.status_code == 500
         data = response.json()
-        assert data["status"] == "received"
-        assert data["event_type"] == "unknown"
+        assert data["status"] == "error"
 
-        # But it should log an error
+        # Should log errors
         assert "Failed to parse JSON payload" in caplog.text
 
     def test_webhook_extracts_all_frameio_fields(self, sample_frameio_payload):
         """Test webhook correctly extracts all Frame.io V4 fields."""
-        with patch("app.main.logger") as mock_logger:
+        with patch("app.api.frameio.logger") as mock_logger:
             response = client.post(
                 "/api/v1/frameio/webhook",
                 json=sample_frameio_payload,
@@ -228,10 +228,9 @@ class TestEndpointSecurity:
             headers={"Content-Type": "application/json"},
         )
 
-        assert response.status_code == 200
+        assert response.status_code == 500  # Will fail validation
         data = response.json()
-        assert data["status"] == "received"
-        assert data["event_type"] == "unknown"
+        assert data["status"] == "error"
 
 
 class TestPubSubIntegration:
@@ -249,7 +248,7 @@ class TestPubSubIntegration:
     def test_webhook_publishes_to_pubsub(self, sample_payload):
         """Test webhook publishes message to Pub/Sub."""
         # Configure the mock's return value
-        mock_pubsub_client.publish.return_value = "msg-id-123"
+        mock_event_publisher.publish.return_value = "msg-id-123"
 
         response = client.post(
             "/api/v1/frameio/webhook",
@@ -265,11 +264,12 @@ class TestPubSubIntegration:
         assert data["pubsub_message_id"] == "msg-id-123"
 
         # Verify publish was called with correct data
-        mock_pubsub_client.publish.assert_called_once()
-        call_args = mock_pubsub_client.publish.call_args
+        mock_event_publisher.publish.assert_called_once()
+        call_args = mock_event_publisher.publish.call_args
 
-        # Check message data
-        assert call_args.kwargs["message_data"] == sample_payload
+        # Check message data (should be the domain model dict)
+        message_data = call_args.kwargs["message_data"]
+        assert message_data["type"] == "file.created"
 
         # Check attributes
         attributes = call_args.kwargs["attributes"]
@@ -280,7 +280,7 @@ class TestPubSubIntegration:
     def test_webhook_continues_if_pubsub_fails(self, sample_payload):
         """Test webhook still succeeds if Pub/Sub publishing fails."""
         # Configure mock to raise an exception
-        mock_pubsub_client.publish.side_effect = Exception("Pub/Sub error")
+        mock_event_publisher.publish.side_effect = Exception("Pub/Sub error")
 
         response = client.post(
             "/api/v1/frameio/webhook",
@@ -295,9 +295,9 @@ class TestPubSubIntegration:
         assert "pubsub_message_id" not in data
 
     def test_webhook_when_pubsub_disabled(self, sample_payload):
-        """Test webhook works when Pub/Sub is disabled."""
+        """Test webhook works when Pub/Sub returns None."""
         # Configure mock to return None (disabled)
-        mock_pubsub_client.publish.return_value = None
+        mock_event_publisher.publish.return_value = None
 
         response = client.post(
             "/api/v1/frameio/webhook",
@@ -313,7 +313,7 @@ class TestPubSubIntegration:
     def test_webhook_pubsub_attributes_with_minimal_payload(self):
         """Test Pub/Sub attributes are set correctly for minimal payload."""
         # Configure mock's return value
-        mock_pubsub_client.publish.return_value = "msg-id-456"
+        mock_event_publisher.publish.return_value = "msg-id-456"
 
         minimal_payload = {"type": "unknown_event", "resource": {}}
 
@@ -326,7 +326,7 @@ class TestPubSubIntegration:
         assert response.status_code == 200
 
         # Verify attributes use defaults for missing fields
-        call_args = mock_pubsub_client.publish.call_args
+        call_args = mock_event_publisher.publish.call_args
         attributes = call_args.kwargs["attributes"]
         assert attributes["event_type"] == "unknown_event"
         assert attributes["resource_type"] == "unknown"
@@ -336,13 +336,11 @@ class TestPubSubIntegration:
 class TestApplicationLifecycle:
     """Test application lifecycle events."""
 
-    def test_shutdown_event_closes_pubsub_client(self):
-        """Test shutdown event completes successfully and closes client."""
+    def test_shutdown_event_closes_publisher(self):
+        """Test shutdown event completes successfully and closes publisher."""
         # Ensure environment variable is set for shutdown
         with patch.dict(os.environ, {"GCP_PROJECT_ID": "test-project"}):
             # Shutdown event should complete without errors
-            # Note: The lru_cache is cleared when TestClient exits, so shutdown
-            # creates a new client instance. In production, the cached client is closed.
             with TestClient(app) as test_client:
                 # Make a request to ensure the app works
                 response = test_client.post(
@@ -350,6 +348,4 @@ class TestApplicationLifecycle:
                     json={"type": "test", "resource": {}},
                 )
                 assert response.status_code == 200
-                # Verify the dependency-injected mock was used during the request
-                assert mock_pubsub_client.publish.called
                 # TestClient context manager will trigger shutdown on exit

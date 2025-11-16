@@ -1,21 +1,22 @@
 """
-Unit tests for the PubSubClient class.
+Unit tests for the GooglePubSubPublisher infrastructure adapter.
 """
 
 import os
 from unittest.mock import MagicMock, patch
 
 import pytest
+from google.api_core import exceptions
 
-from app.pubsub_client import PubSubClient
+from app.infrastructure.pubsub_publisher import GooglePubSubPublisher
 
 
-class TestPubSubClient:
-    """Test PubSubClient initialization and configuration."""
+class TestGooglePubSubPublisher:
+    """Test Google Pub/Sub publisher initialization."""
 
-    @patch("app.pubsub_client.pubsub_v1.PublisherClient")
-    def test_client_initialization(self, mock_publisher_class):
-        """Test client initializes correctly."""
+    @patch("app.infrastructure.pubsub_publisher.pubsub_v1.PublisherClient")
+    def test_publisher_initialization(self, mock_publisher_class):
+        """Test publisher initializes correctly."""
         mock_publisher = MagicMock()
         mock_publisher_class.return_value = mock_publisher
         mock_publisher.topic_path.return_value = (
@@ -23,22 +24,21 @@ class TestPubSubClient:
         )
 
         with patch.dict(os.environ, {"GCP_PROJECT_ID": "test-project"}):
-            client = PubSubClient(topic_name="test-topic")
+            publisher = GooglePubSubPublisher(topic_name="test-topic")
 
-        assert client.project_id == "test-project"
-        assert client.topic_name == "test-topic"
-        assert client.publisher is not None
+            assert publisher.project_id == "test-project"
+            assert publisher.topic_name == "test-topic"
+            mock_publisher_class.assert_called_once()
 
-    def test_client_missing_project_id_raises_error(self):
-        """Test client raises ValueError when GCP_PROJECT_ID is not set."""
+    def test_publisher_missing_project_id_raises_error(self):
+        """Test publisher raises error when project ID is missing."""
         with patch.dict(os.environ, {}, clear=True):
-            # Clear environment and don't pass project_id
             with pytest.raises(ValueError, match="GCP_PROJECT_ID must be set"):
-                PubSubClient()
+                GooglePubSubPublisher()
 
-    @patch("app.pubsub_client.pubsub_v1.PublisherClient")
-    def test_client_detects_emulator(self, mock_publisher_class):
-        """Test client detects Pub/Sub emulator."""
+    @patch("app.infrastructure.pubsub_publisher.pubsub_v1.PublisherClient")
+    def test_publisher_detects_emulator(self, mock_publisher_class):
+        """Test publisher detects Pub/Sub emulator."""
         mock_publisher = MagicMock()
         mock_publisher_class.return_value = mock_publisher
         mock_publisher.topic_path.return_value = (
@@ -52,13 +52,13 @@ class TestPubSubClient:
                 "PUBSUB_EMULATOR_HOST": "localhost:8085",
             },
         ):
-            client = PubSubClient()
+            publisher = GooglePubSubPublisher()
 
-        assert client.emulator_host == "localhost:8085"
+            assert publisher.emulator_host == "localhost:8085"
 
-    @patch("app.pubsub_client.pubsub_v1.PublisherClient")
-    def test_client_default_topic_name(self, mock_publisher_class):
-        """Test client uses default topic name."""
+    @patch("app.infrastructure.pubsub_publisher.pubsub_v1.PublisherClient")
+    def test_publisher_default_topic_name(self, mock_publisher_class):
+        """Test publisher uses default topic name."""
         mock_publisher = MagicMock()
         mock_publisher_class.return_value = mock_publisher
         mock_publisher.topic_path.return_value = (
@@ -66,15 +66,15 @@ class TestPubSubClient:
         )
 
         with patch.dict(os.environ, {"GCP_PROJECT_ID": "test-project"}):
-            client = PubSubClient()
+            publisher = GooglePubSubPublisher()
 
-        assert client.topic_name == "frameio-events"
+            assert publisher.topic_name == "frameio-events"
 
 
-class TestPubSubPublish:
-    """Test message publishing functionality."""
+class TestGooglePubSubPublish:
+    """Test publishing messages to Pub/Sub."""
 
-    @patch("app.pubsub_client.pubsub_v1.PublisherClient")
+    @patch("app.infrastructure.pubsub_publisher.pubsub_v1.PublisherClient")
     def test_publish_message_success(self, mock_publisher_class):
         """Test successful message publishing."""
         mock_publisher = MagicMock()
@@ -85,25 +85,22 @@ class TestPubSubPublish:
 
         # Mock the future result
         mock_future = MagicMock()
-        mock_future.result.return_value = "test-message-id-123"
+        mock_future.result.return_value = "test-message-id"
         mock_publisher.publish.return_value = mock_future
 
         with patch.dict(os.environ, {"GCP_PROJECT_ID": "test-project"}):
-            client = PubSubClient()
+            publisher = GooglePubSubPublisher()
 
-        message_data = {"type": "test.event", "resource": {"id": "123"}}
-        attributes = {"event_type": "test.event"}
+            message_id = publisher.publish(
+                message_data={"test": "data"}, attributes={"key": "value"}
+            )
 
-        message_id = client.publish(message_data, attributes)
+            assert message_id == "test-message-id"
+            mock_publisher.publish.assert_called_once()
 
-        assert message_id == "test-message-id-123"
-        mock_publisher.publish.assert_called_once()
-
-    @patch("app.pubsub_client.pubsub_v1.PublisherClient")
+    @patch("app.infrastructure.pubsub_publisher.pubsub_v1.PublisherClient")
     def test_publish_handles_not_found_error(self, mock_publisher_class):
-        """Test publish handles NotFound error gracefully."""
-        from google.api_core import exceptions
-
+        """Test publish handles topic not found errors."""
         mock_publisher = MagicMock()
         mock_publisher_class.return_value = mock_publisher
         mock_publisher.topic_path.return_value = (
@@ -114,17 +111,15 @@ class TestPubSubPublish:
         mock_publisher.publish.side_effect = exceptions.NotFound("Topic not found")
 
         with patch.dict(os.environ, {"GCP_PROJECT_ID": "test-project"}):
-            client = PubSubClient()
+            publisher = GooglePubSubPublisher()
 
-        message_id = client.publish({"type": "test"})
+            message_id = publisher.publish(message_data={"test": "data"})
 
-        assert message_id is None
+            assert message_id is None
 
-    @patch("app.pubsub_client.pubsub_v1.PublisherClient")
+    @patch("app.infrastructure.pubsub_publisher.pubsub_v1.PublisherClient")
     def test_publish_handles_permission_denied_error(self, mock_publisher_class):
-        """Test publish handles PermissionDenied error gracefully."""
-        from google.api_core import exceptions
-
+        """Test publish handles permission denied errors."""
         mock_publisher = MagicMock()
         mock_publisher_class.return_value = mock_publisher
         mock_publisher.topic_path.return_value = (
@@ -137,13 +132,13 @@ class TestPubSubPublish:
         )
 
         with patch.dict(os.environ, {"GCP_PROJECT_ID": "test-project"}):
-            client = PubSubClient()
+            publisher = GooglePubSubPublisher()
 
-        message_id = client.publish({"type": "test"})
+            message_id = publisher.publish(message_data={"test": "data"})
 
-        assert message_id is None
+            assert message_id is None
 
-    @patch("app.pubsub_client.pubsub_v1.PublisherClient")
+    @patch("app.infrastructure.pubsub_publisher.pubsub_v1.PublisherClient")
     def test_publish_handles_generic_error(self, mock_publisher_class):
         """Test publish handles generic errors gracefully."""
         mock_publisher = MagicMock()
@@ -156,13 +151,13 @@ class TestPubSubPublish:
         mock_publisher.publish.side_effect = Exception("Network error")
 
         with patch.dict(os.environ, {"GCP_PROJECT_ID": "test-project"}):
-            client = PubSubClient()
+            publisher = GooglePubSubPublisher()
 
-        message_id = client.publish({"type": "test"})
+            message_id = publisher.publish(message_data={"test": "data"})
 
-        assert message_id is None
+            assert message_id is None
 
-    @patch("app.pubsub_client.pubsub_v1.PublisherClient")
+    @patch("app.infrastructure.pubsub_publisher.pubsub_v1.PublisherClient")
     def test_publish_with_default_attributes(self, mock_publisher_class):
         """Test publish works without explicit attributes."""
         mock_publisher = MagicMock()
@@ -176,15 +171,15 @@ class TestPubSubPublish:
         mock_publisher.publish.return_value = mock_future
 
         with patch.dict(os.environ, {"GCP_PROJECT_ID": "test-project"}):
-            client = PubSubClient()
+            publisher = GooglePubSubPublisher()
 
-        message_id = client.publish({"type": "test"})
+            message_id = publisher.publish(message_data={"test": "data"})
 
-        assert message_id == "test-message-id"
+            assert message_id == "test-message-id"
 
-    @patch("app.pubsub_client.pubsub_v1.PublisherClient")
-    def test_close_client(self, mock_publisher_class):
-        """Test closing the client."""
+    @patch("app.infrastructure.pubsub_publisher.pubsub_v1.PublisherClient")
+    def test_close_publisher(self, mock_publisher_class):
+        """Test closing the publisher."""
         mock_publisher = MagicMock()
         mock_publisher_class.return_value = mock_publisher
         mock_publisher.topic_path.return_value = (
@@ -192,8 +187,7 @@ class TestPubSubPublish:
         )
 
         with patch.dict(os.environ, {"GCP_PROJECT_ID": "test-project"}):
-            client = PubSubClient()
+            publisher = GooglePubSubPublisher()
+            publisher.close()
 
-        client.close()
-
-        mock_publisher.stop.assert_called_once()
+            mock_publisher.stop.assert_called_once()
