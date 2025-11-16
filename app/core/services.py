@@ -6,39 +6,12 @@ infrastructure details like HTTP or message queues.
 """
 
 import logging
-from typing import Any, Dict, Optional, Protocol
+from typing import Any, Dict
 
 from app.core.domain import FrameIOEvent
+from app.core.ports import EventPublisher
 
 logger = logging.getLogger(__name__)
-
-
-class EventPublisher(Protocol):
-    """
-    Port (interface) for publishing events.
-
-    This is implemented by infrastructure adapters (e.g., GooglePubSubPublisher).
-    The core domain depends on this interface, not on concrete implementations.
-    """
-
-    def publish(
-        self, message_data: Dict[str, Any], attributes: Optional[Dict[str, str]] = None
-    ) -> Optional[str]:
-        """
-        Publish an event message.
-
-        Args:
-            message_data: The event data to publish
-            attributes: Optional metadata attributes
-
-        Returns:
-            Message ID if successful, None otherwise
-        """
-        ...
-
-    def close(self) -> None:
-        """Close the publisher and cleanup resources."""
-        ...
 
 
 class WebhookService:
