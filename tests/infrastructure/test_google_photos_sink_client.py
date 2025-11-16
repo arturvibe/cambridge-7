@@ -56,7 +56,10 @@ def test_get_gphotos_service_auth_error(mock_creds_class):
 )
 @patch("requests.post")
 def test_upload_photo_success(
-    mock_post, mock_get_service, mock_gphotos_service, mock_credentials
+    mock_post,
+    mock_get_service,
+    mock_gphotos_service,
+    mock_credentials,
 ):
     """Test a successful photo upload."""
     mock_get_service.return_value = (mock_gphotos_service, mock_credentials)
@@ -76,9 +79,7 @@ def test_upload_photo_success(
             }
         ]
     }
-    mock_gphotos_service.mediaItems.return_value.batchCreate.return_value.execute.return_value = (
-        mock_create_response
-    )
+    mock_gphotos_service.mediaItems.return_value.batchCreate.return_value.execute.return_value = mock_create_response
 
     client = GooglePhotosSinkClient("id", "secret", "refresh")
     result = client.upload_photo(b"test_bytes", "test.jpg", "A test photo")
@@ -95,7 +96,10 @@ def test_upload_photo_success(
     "requests.post", side_effect=requests.exceptions.RequestException("Network error")
 )
 def test_upload_photo_upload_error(
-    mock_post, mock_get_service, mock_gphotos_service, mock_credentials
+    mock_post,
+    mock_get_service,
+    mock_gphotos_service,
+    mock_credentials,
 ):
     """Test that GooglePhotosUploadError is raised on byte upload failure."""
     mock_get_service.return_value = (mock_gphotos_service, mock_credentials)
@@ -110,7 +114,10 @@ def test_upload_photo_upload_error(
 )
 @patch("requests.post")
 def test_upload_photo_media_item_creation_error(
-    mock_post, mock_get_service, mock_gphotos_service, mock_credentials
+    mock_post,
+    mock_get__service,
+    mock_gphotos_service,
+    mock_credentials,
 ):
     """Test that GooglePhotosUploadError is raised on media item creation failure."""
     mock_get_service.return_value = (mock_gphotos_service, mock_credentials)
@@ -123,9 +130,7 @@ def test_upload_photo_media_item_creation_error(
     mock_create_response = {
         "newMediaItemResults": [{"status": {"message": "API Error"}}]
     }
-    mock_gphotos_service.mediaItems.return_value.batchCreate.return_value.execute.return_value = (
-        mock_create_response
-    )
+    mock_gphotos_service.mediaItems.return_value.batchCreate.return_value.execute.return_value = mock_create_response
 
     client = GooglePhotosSinkClient("id", "secret", "refresh")
     with pytest.raises(GooglePhotosUploadError):
