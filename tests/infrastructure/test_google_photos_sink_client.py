@@ -117,7 +117,7 @@ def test_upload_photo_upload_error(
 @patch("requests.post")
 def test_upload_photo_media_item_creation_error(
     mock_post,
-    mock_get__service,
+    mock_get_service,
     mock_gphotos_service,
     mock_credentials,
 ):
