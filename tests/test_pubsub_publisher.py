@@ -8,7 +8,23 @@ from unittest.mock import MagicMock, patch
 import pytest
 from google.api_core import exceptions
 
+from app.core.domain import FrameIOEvent
 from app.infrastructure.pubsub_publisher import GooglePubSubPublisher
+
+
+@pytest.fixture
+def sample_event():
+    """Create a sample FrameIOEvent for testing."""
+    return FrameIOEvent(
+        **{
+            "type": "file.created",
+            "resource": {"type": "file", "id": "test-file-123"},
+            "account": {"id": "acc-123"},
+            "workspace": {"id": "ws-123"},
+            "project": {"id": "proj-123"},
+            "user": {"id": "user-123"},
+        }
+    )
 
 
 class TestGooglePubSubPublisher:
@@ -68,8 +84,8 @@ class TestGooglePubSubPublish:
     """Test publishing messages to Pub/Sub."""
 
     @patch("app.infrastructure.pubsub_publisher.pubsub_v1.PublisherClient")
-    def test_publish_message_success(self, mock_publisher_class):
-        """Test successful message publishing."""
+    def test_publish_message_success(self, mock_publisher_class, sample_event):
+        """Test successful message publishing with domain event."""
         mock_publisher = MagicMock()
         mock_publisher_class.return_value = mock_publisher
         mock_publisher.topic_path.return_value = (
@@ -87,15 +103,19 @@ class TestGooglePubSubPublish:
         ):
             publisher = GooglePubSubPublisher()
 
-            message_id = publisher.publish(
-                message_data={"test": "data"}, attributes={"key": "value"}
-            )
+            message_id = publisher.publish(sample_event)
 
             assert message_id == "test-message-id"
             mock_publisher.publish.assert_called_once()
 
+            # Verify attributes were extracted from domain object
+            call_kwargs = mock_publisher.publish.call_args.kwargs
+            assert call_kwargs["event_type"] == "file.created"
+            assert call_kwargs["resource_type"] == "file"
+            assert call_kwargs["resource_id"] == "test-file-123"
+
     @patch("app.infrastructure.pubsub_publisher.pubsub_v1.PublisherClient")
-    def test_publish_handles_not_found_error(self, mock_publisher_class):
+    def test_publish_handles_not_found_error(self, mock_publisher_class, sample_event):
         """Test publish handles topic not found errors."""
         mock_publisher = MagicMock()
         mock_publisher_class.return_value = mock_publisher
@@ -112,12 +132,14 @@ class TestGooglePubSubPublish:
         ):
             publisher = GooglePubSubPublisher()
 
-            message_id = publisher.publish(message_data={"test": "data"})
+            message_id = publisher.publish(sample_event)
 
             assert message_id is None
 
     @patch("app.infrastructure.pubsub_publisher.pubsub_v1.PublisherClient")
-    def test_publish_handles_permission_denied_error(self, mock_publisher_class):
+    def test_publish_handles_permission_denied_error(
+        self, mock_publisher_class, sample_event
+    ):
         """Test publish handles permission denied errors."""
         mock_publisher = MagicMock()
         mock_publisher_class.return_value = mock_publisher
@@ -136,12 +158,12 @@ class TestGooglePubSubPublish:
         ):
             publisher = GooglePubSubPublisher()
 
-            message_id = publisher.publish(message_data={"test": "data"})
+            message_id = publisher.publish(sample_event)
 
             assert message_id is None
 
     @patch("app.infrastructure.pubsub_publisher.pubsub_v1.PublisherClient")
-    def test_publish_handles_generic_error(self, mock_publisher_class):
+    def test_publish_handles_generic_error(self, mock_publisher_class, sample_event):
         """Test publish handles generic errors gracefully."""
         mock_publisher = MagicMock()
         mock_publisher_class.return_value = mock_publisher
@@ -158,32 +180,9 @@ class TestGooglePubSubPublish:
         ):
             publisher = GooglePubSubPublisher()
 
-            message_id = publisher.publish(message_data={"test": "data"})
+            message_id = publisher.publish(sample_event)
 
             assert message_id is None
-
-    @patch("app.infrastructure.pubsub_publisher.pubsub_v1.PublisherClient")
-    def test_publish_with_default_attributes(self, mock_publisher_class):
-        """Test publish works without explicit attributes."""
-        mock_publisher = MagicMock()
-        mock_publisher_class.return_value = mock_publisher
-        mock_publisher.topic_path.return_value = (
-            "projects/test-project/topics/test-topic"
-        )
-
-        mock_future = MagicMock()
-        mock_future.result.return_value = "test-message-id"
-        mock_publisher.publish.return_value = mock_future
-
-        with patch.dict(
-            os.environ,
-            {"GCP_PROJECT_ID": "test-project", "PUBSUB_TOPIC_NAME": "test-topic"},
-        ):
-            publisher = GooglePubSubPublisher()
-
-            message_id = publisher.publish(message_data={"test": "data"})
-
-            assert message_id == "test-message-id"
 
     @patch("app.infrastructure.pubsub_publisher.pubsub_v1.PublisherClient")
     def test_close_publisher(self, mock_publisher_class):

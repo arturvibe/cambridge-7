@@ -5,7 +5,9 @@ Ports define the contracts between the core domain and external systems.
 Infrastructure adapters implement these ports.
 """
 
-from typing import Any, Dict, Optional, Protocol
+from typing import Optional, Protocol
+
+from app.core.domain import FrameIOEvent
 
 
 class EventPublisher(Protocol):
@@ -14,17 +16,17 @@ class EventPublisher(Protocol):
 
     This is implemented by infrastructure adapters (e.g., GooglePubSubPublisher).
     The core domain depends on this interface, not on concrete implementations.
+
+    The domain layer works with domain objects (FrameIOEvent). The infrastructure
+    adapter is responsible for serialization.
     """
 
-    def publish(
-        self, message_data: Dict[str, Any], attributes: Optional[Dict[str, str]] = None
-    ) -> Optional[str]:
+    def publish(self, event: FrameIOEvent) -> Optional[str]:
         """
-        Publish an event message.
+        Publish a domain event.
 
         Args:
-            message_data: The event data to publish
-            attributes: Optional metadata attributes
+            event: The domain event to publish
 
         Returns:
             Message ID if successful, None otherwise

@@ -8,10 +8,12 @@ defined in the core domain.
 import json
 import logging
 import os
-from typing import Any, Dict, Optional
+from typing import Optional
 
 from google.api_core import exceptions
 from google.cloud import pubsub_v1
+
+from app.core.domain import FrameIOEvent
 
 logger = logging.getLogger(__name__)
 
@@ -55,26 +57,31 @@ class GooglePubSubPublisher:
         else:
             logger.info(f"Pub/Sub publisher initialized for topic: {self.topic_path}")
 
-    def publish(
-        self, message_data: Dict[str, Any], attributes: Optional[Dict[str, str]] = None
-    ) -> Optional[str]:
+    def publish(self, event: FrameIOEvent) -> Optional[str]:
         """
-        Publish a message to the Pub/Sub topic.
+        Publish a domain event to the Pub/Sub topic.
+
+        This is an infrastructure adapter - it handles serialization of the
+        domain object to JSON for Pub/Sub. The core domain works with domain
+        objects; this adapter translates them to infrastructure format.
 
         Args:
-            message_data: Dictionary containing the message payload
-            attributes: Optional message attributes (metadata)
+            event: The domain event to publish
 
         Returns:
             Message ID if successful, None if failed
         """
         try:
-            # Convert message to JSON bytes
+            # Serialize domain object to JSON (infrastructure concern)
+            message_data = event.to_dict()
             message_bytes = json.dumps(message_data, default=str).encode("utf-8")
 
-            # Add default attributes if not provided
-            if attributes is None:
-                attributes = {}
+            # Extract attributes from domain object (for Pub/Sub message metadata)
+            attributes = {
+                "event_type": event.event_type,
+                "resource_type": event.resource_type,
+                "resource_id": event.resource_id,
+            }
 
             # Publish message
             future = self.publisher.publish(

@@ -78,15 +78,9 @@ class FrameioWebhookService:
         logger.info(json.dumps(log_data, default=str))
 
         # Publish event to downstream consumers
+        # Pass the domain object - infrastructure layer handles serialization
         try:
-            message_id = self.event_publisher.publish(
-                message_data=event.to_dict(),
-                attributes={
-                    "event_type": event.event_type,
-                    "resource_type": event.resource_type,
-                    "resource_id": event.resource_id,
-                },
-            )
+            message_id = self.event_publisher.publish(event)
         except Exception as e:
             # Publishing failed - raise domain exception
             raise PublisherError(f"Failed to publish event: {str(e)}") from e
