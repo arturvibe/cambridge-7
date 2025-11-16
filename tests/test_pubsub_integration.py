@@ -68,7 +68,7 @@ class TestPubSubIntegration:
         assert response.status_code == 500
         data = response.json()
         assert data["status"] == "error"
-        assert "Failed to publish event to Pub/Sub" in data["message"]
+        assert "please retry" in data["message"]
 
     def test_webhook_returns_500_when_pubsub_returns_none(self, sample_payload):
         """Test webhook returns 500 when Pub/Sub returns None so Frame.io can retry."""
@@ -85,7 +85,7 @@ class TestPubSubIntegration:
         assert response.status_code == 500
         data = response.json()
         assert data["status"] == "error"
-        assert "Failed to publish event to Pub/Sub" in data["message"]
+        assert "please retry" in data["message"]
 
     def test_webhook_pubsub_attributes_with_complete_payload(self):
         """Test Pub/Sub attributes are set correctly for complete payload."""

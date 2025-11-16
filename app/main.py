@@ -16,10 +16,13 @@ from app.logging_config import setup_global_logging
 setup_global_logging()
 
 # Now import other modules (they will use the configured logging)
-from fastapi import Depends, FastAPI  # noqa: E402
+from fastapi import Depends, FastAPI, Request, status  # noqa: E402
+from fastapi.exceptions import RequestValidationError  # noqa: E402
+from fastapi.responses import JSONResponse  # noqa: E402
 
 from app.api import frameio  # noqa: E402
 from app.api.frameio import get_webhook_service_dependency  # noqa: E402
+from app.core.exceptions import PublisherError  # noqa: E402
 from app.core.services import FrameioWebhookService  # noqa: E402
 from app.infrastructure.pubsub_publisher import GooglePubSubPublisher  # noqa: E402
 
@@ -60,6 +63,54 @@ def get_webhook_service(
 
 # Override the dependency in the router to use our wired service
 app.dependency_overrides[get_webhook_service_dependency] = get_webhook_service
+
+
+# ============================================================================
+# Centralized Exception Handlers
+# ============================================================================
+
+
+@app.exception_handler(PublisherError)
+async def publisher_error_handler(request: Request, exc: PublisherError):
+    """
+    Handle publisher errors (Pub/Sub failures).
+
+    Returns 500 Internal Server Error so Frame.io will retry the webhook.
+    This prevents data loss when Pub/Sub is temporarily unavailable.
+    """
+    logger.error(f"Publisher error: {str(exc)}", exc_info=True)
+    return JSONResponse(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        content={
+            "status": "error",
+            "message": "Failed to publish event - please retry",
+        },
+    )
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_error_handler(request: Request, exc: RequestValidationError):
+    """
+    Handle Pydantic validation errors (invalid JSON or missing fields).
+
+    Returns 422 Unprocessable Entity so Frame.io knows not to retry.
+    Logs the raw request body for debugging.
+    """
+    # Log the validation error with raw body for debugging
+    body = await request.body()
+    logger.error(
+        f"Validation error: {str(exc)}\n"
+        f"Raw body: {body.decode('utf-8') if body else 'empty'}"
+    )
+
+    return JSONResponse(
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        content={
+            "status": "error",
+            "message": "Invalid payload schema",
+            "details": exc.errors(),
+        },
+    )
 
 
 # ============================================================================

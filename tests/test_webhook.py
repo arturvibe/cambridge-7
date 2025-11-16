@@ -62,37 +62,36 @@ class TestFrameIOWebhook:
         assert "message_id" in data
 
     def test_webhook_handles_invalid_json(self):
-        """Test webhook returns 422 for invalid JSON (FastAPI automatic validation)."""
+        """Test webhook returns 422 for invalid JSON (custom exception handler)."""
         response = client.post(
             "/api/v1/frameio/webhook",
             content=b"invalid json{{{",
             headers={"Content-Type": "application/json"},
         )
 
-        # FastAPI returns 422 Unprocessable Entity for invalid JSON
+        # Custom exception handler returns 422 Unprocessable Entity for invalid JSON
         assert response.status_code == 422
         data = response.json()
-        assert "detail" in data  # FastAPI's standard error format
+        assert "details" in data  # Custom exception handler format
+        assert data["status"] == "error"
+        assert "Invalid payload schema" in data["message"]
 
-    def test_webhook_extracts_all_frameio_fields(self, sample_frameio_payload):
-        """Test webhook correctly extracts all Frame.io V4 fields."""
-        with patch("app.api.frameio.logger") as mock_logger:
+    def test_webhook_extracts_all_frameio_fields(self, sample_frameio_payload, caplog):
+        """Test webhook correctly extracts all Frame.io V4 fields (logged by service)."""
+        with caplog.at_level("INFO"):
             response = client.post(
                 "/api/v1/frameio/webhook",
                 json=sample_frameio_payload,
                 headers={"Content-Type": "application/json"},
             )
 
-            assert response.status_code == 200
+        assert response.status_code == 200
 
-            # Verify logger was called with expected information
-            assert mock_logger.info.called
-            log_calls = [str(call) for call in mock_logger.info.call_args_list]
-            log_output = " ".join(log_calls)
-
-            assert "resource.asset_created" in log_output
-            assert "asset" in log_output
-            assert "abc-123-def-456" in log_output
+        # Verify fields were logged in structured JSON (service logs to app.core.services)
+        log_text = caplog.text
+        assert "resource.asset_created" in log_text
+        assert "asset" in log_text
+        assert "abc-123-def-456" in log_text
 
     def test_webhook_response_structure(self, sample_frameio_payload):
         """Test webhook response has correct structure."""

@@ -49,7 +49,9 @@ class TestEndpointSecurity:
             headers={"Content-Type": "application/json"},
         )
 
-        # FastAPI returns 422 Unprocessable Entity for missing required fields
+        # Custom exception handler returns 422 Unprocessable Entity for missing required fields
         assert response.status_code == 422
         data = response.json()
-        assert "detail" in data  # FastAPI's standard error format
+        assert "details" in data  # Custom exception handler format
+        assert data["status"] == "error"
+        assert "Invalid payload schema" in data["message"]
