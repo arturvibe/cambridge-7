@@ -20,7 +20,6 @@ setup_global_logging()
 from fastapi import Depends, FastAPI, Request, status  # noqa: E402
 from fastapi.exceptions import RequestValidationError  # noqa: E402
 from fastapi.responses import JSONResponse  # noqa: E402
-from starlette.middleware.sessions import SessionMiddleware  # noqa: E402
 
 from app.api import auth, frameio  # noqa: E402
 from app.api.auth import get_oauth_service_dependency  # noqa: E402
@@ -64,14 +63,6 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan,
 )
-
-# Add SessionMiddleware for OAuth state management
-# IMPORTANT: In production, use a strong, securely managed secret key.
-app.add_middleware(
-    SessionMiddleware,
-    secret_key=os.getenv("SESSION_SECRET_KEY", "a-secure-default-secret-for-dev"),
-)
-
 
 # ============================================================================
 # Dependency Injection Configuration (Wiring)

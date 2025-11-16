@@ -17,13 +17,13 @@ client = TestClient(app)
     new_callable=AsyncMock,
 )
 def test_login_adobe_redirects(mock_authorize_redirect):
-    """Test that the /login/adobe endpoint redirects the user."""
+    """Test that the /connect/adobe endpoint redirects the user."""
     # Configure the mock to return a RedirectResponse
     redirect_url = "https://ims-na1.adobelogin.com/ims/authorize?..."
     mock_authorize_redirect.return_value = RedirectResponse(url=redirect_url)
 
     # Make the request to the endpoint, but don't follow the redirect
-    response = client.get("/login/adobe", follow_redirects=False)
+    response = client.get("/connect/adobe", follow_redirects=False)
 
     # Assert that the response is a redirect
     assert response.status_code == 307

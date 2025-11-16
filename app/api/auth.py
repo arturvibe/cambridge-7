@@ -15,7 +15,7 @@ def get_oauth_service_dependency() -> OAuthService:
     raise NotImplementedError("This dependency should be overridden")
 
 
-@router.get("/login/adobe")
+@router.get("/connect/adobe")
 async def login_adobe(
     request: Request,
     oauth_service: OAuthService = Depends(get_oauth_service_dependency),

@@ -31,7 +31,7 @@ FastAPI webhook receiver for Frame.io V4 → logs payloads to GCP Cloud Run → 
 
 **Separation of Concerns:**
 - **Adapters** (API/Infrastructure): HTTP ↔ Python translation, serialization
-- **Core Domain**: Pure business logic, domain models, ports (interfaces)
+- **Core Domain**: Pure business logic, domain models, ports (interfaces, defined using `Protocol`)
 - **Exception Handling**: Centralized in `app/main.py` (no try-except in adapters!)
 
 ## Structure
