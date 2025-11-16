@@ -11,7 +11,10 @@ from app.main import app
 client = TestClient(app)
 
 
-@patch("app.main.oauth.adobe.authorize_redirect", new_callable=AsyncMock)
+@patch(
+    "app.infrastructure.oauth_providers.AdobeOAuthProvider.authorize_redirect",
+    new_callable=AsyncMock,
+)
 def test_connect_to_adobe_redirects(mock_authorize_redirect):
     """Test that the /connect/adobe endpoint redirects the user."""
     # Configure the mock to return a RedirectResponse
@@ -27,9 +30,12 @@ def test_connect_to_adobe_redirects(mock_authorize_redirect):
     mock_authorize_redirect.assert_called_once()
 
 
-@patch("app.main.oauth.adobe.authorize_access_token", new_callable=AsyncMock)
-def test_auth_callback(mock_authorize_access_token, caplog):
-    """Test that the /auth/adobe/callback endpoint handles the callback correctly."""
+@patch(
+    "app.infrastructure.oauth_providers.AdobeOAuthProvider.authorize_access_token",
+    new_callable=AsyncMock,
+)
+def test_auth_adobe_callback(mock_authorize_access_token, caplog):
+    """Test that the /auth/adobe endpoint handles the callback correctly."""
     # Configure the mock to return a dummy token
     dummy_token = {
         "access_token": "dummy_access_token",
@@ -38,7 +44,7 @@ def test_auth_callback(mock_authorize_access_token, caplog):
     mock_authorize_access_token.return_value = dummy_token
 
     # Make the request to the endpoint
-    response = client.get("/auth/adobe/callback")
+    response = client.get("/auth/adobe")
 
     # Assert that the response is successful
     assert response.status_code == 200

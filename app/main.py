@@ -17,17 +17,19 @@ from app.logging_config import setup_global_logging
 setup_global_logging()
 
 # Now import other modules (they will use the configured logging)
-from fastapi import Depends, FastAPI, Request, status  # noqa: E4-2
-from fastapi.exceptions import RequestValidationError  # noqa: E4-2
-from fastapi.responses import JSONResponse  # noqa: E4-2
-from starlette.middleware.sessions import SessionMiddleware  # noqa: E4-2
-from authlib.integrations.starlette_client import OAuth  # noqa: E4-2
+from fastapi import Depends, FastAPI, Request, status  # noqa: E402
+from fastapi.exceptions import RequestValidationError  # noqa: E402
+from fastapi.responses import JSONResponse  # noqa: E402
+from starlette.middleware.sessions import SessionMiddleware  # noqa: E402
 
-from app.api import frameio  # noqa: E4-2
-from app.api.frameio import get_webhook_service_dependency  # noqa: E4-2
-from app.core.exceptions import PublisherError  # noqa: E4-2
-from app.core.services import FrameioWebhookService  # noqa: E4-2
-from app.infrastructure.pubsub_publisher import GooglePubSubPublisher  # noqa: E4-2
+from app.api import auth, frameio  # noqa: E402
+from app.api.auth import get_oauth_service_dependency  # noqa: E402
+from app.api.frameio import get_webhook_service_dependency  # noqa: E402
+from app.core.exceptions import PublisherError  # noqa: E402
+from app.core.oauth_service import OAuthService  # noqa: E402
+from app.core.services import FrameioWebhookService  # noqa: E402
+from app.infrastructure.oauth_providers import AdobeOAuthProvider  # noqa: E402
+from app.infrastructure.pubsub_publisher import GooglePubSubPublisher  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
@@ -64,19 +66,9 @@ app = FastAPI(
 )
 
 # Add SessionMiddleware for OAuth state management
-app.add_middleware(SessionMiddleware, secret_key=os.environ.get("SESSION_SECRET_KEY", "a-secure-default-secret-for-dev"))
-
-oauth = OAuth()
-ADOBE_AUTHORIZE_URL = "https://ims-na1.adobelogin.com/ims/authorize"
-ADOBE_TOKEN_URL = "https://ims-na1.adobelogin.com/ims/token"
-
-oauth.register(
-    name='adobe',
-    client_id=os.environ.get('ADOBE_CLIENT_ID'),
-    client_secret=os.environ.get('ADOBE_CLIENT_SECRET'),
-    authorize_url=ADOBE_AUTHORIZE_URL,
-    access_token_url=ADOBE_TOKEN_URL,
-    client_kwargs={'scope': 'files offline_access'}
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=os.getenv("SESSION_SECRET_KEY", "a-secure-default-secret-for-dev"),
 )
 
 # ============================================================================
@@ -105,8 +97,22 @@ def get_webhook_service(
     return FrameioWebhookService(event_publisher=event_publisher)
 
 
+@lru_cache()
+def get_adobe_oauth_provider() -> AdobeOAuthProvider:
+    """Create a singleton AdobeOAuthProvider."""
+    return AdobeOAuthProvider()
+
+
+def get_oauth_service(
+    oauth_provider: AdobeOAuthProvider = Depends(get_adobe_oauth_provider),
+) -> OAuthService:
+    """Provide the OAuth service with the Adobe provider."""
+    return OAuthService(provider=oauth_provider)
+
+
 # Override the dependency in the router to use our wired service
 app.dependency_overrides[get_webhook_service_dependency] = get_webhook_service
+app.dependency_overrides[get_oauth_service_dependency] = get_oauth_service
 
 
 # ============================================================================
@@ -177,39 +183,13 @@ async def health():
     """Health check endpoint for Cloud Run."""
     return {"status": "healthy"}
 
-# ============================================================================
-# OAuth Endpoints
-# ============================================================================
-
-@app.get("/connect/adobe")
-async def connect_to_adobe(request: Request):
-    redirect_uri = request.url_for('auth_callback')
-    return await oauth.adobe.authorize_redirect(request, redirect_uri)
-
-
-@app.get("/auth/adobe/callback", name='auth_callback')
-async def auth_callback(request: Request):
-    try:
-        token = await oauth.adobe.authorize_access_token(request)
-    except Exception as e:
-        logger.error(f"Token exchange failed: {e}")
-        return {"error": "Token exchange failed", "message": str(e)}
-
-    access_token = token.get('access_token')
-    refresh_token = token.get('refresh_token')
-
-    logger.info(f"Adobe Access Token: {access_token}")
-    logger.info(f"Adobe Refresh Token: {refresh_token}")
-
-    return {
-        "message": "Successfully authorized with Adobe.",
-    }
 
 # ============================================================================
 # Include Routers
 # ============================================================================
 
 app.include_router(frameio.router)
+app.include_router(auth.router)
 
 
 # ============================================================================
