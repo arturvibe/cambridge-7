@@ -2,33 +2,11 @@
 Client for interacting with the Frame.io API.
 """
 import httpx
-from pydantic import BaseModel, Field, ValidationError
+from pydantic import ValidationError
 
+from app.core.domain import FrameioFile
 from app.core.exceptions import FrameioClientError
 
-
-class OriginalMediaLink(BaseModel):
-    """
-    Represents the 'original' media link in the Frame.io API response.
-    """
-    download_url: str
-
-class MediaLinks(BaseModel):
-    """
-    Represents the 'media_links' object in the Frame.io API response.
-    """
-    original: OriginalMediaLink
-
-class FrameioFile(BaseModel):
-    """
-    Represents a file retrieved from the Frame.io API.
-    """
-    name: str
-    media_links: MediaLinks
-
-    @property
-    def url(self) -> str:
-        return self.media_links.original.download_url
 
 class FrameioSourceClient:
     """

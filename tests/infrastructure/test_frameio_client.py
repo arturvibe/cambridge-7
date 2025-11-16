@@ -5,7 +5,8 @@ import pytest
 import httpx
 from unittest.mock import patch, MagicMock
 
-from app.infrastructure.frameio_client import FrameioSourceClient, FrameioFile
+from app.infrastructure.frameio_client import FrameioSourceClient
+from app.core.domain import FrameioFile
 from app.core.exceptions import FrameioClientError
 
 # Constants for testing
