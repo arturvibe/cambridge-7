@@ -12,7 +12,7 @@ class FrameioSourceClient:
     A client for retrieving asset source URLs from the Frame.io API.
     """
 
-    BASE_URL = "https://api.frame.io/v2"
+    BASE_URL = "https://api.frame.io/v4"
 
     def __init__(self, token: str):
         """
@@ -27,11 +27,12 @@ class FrameioSourceClient:
             "Authorization": f"Bearer {token}",
         }
 
-    def get_asset_original_download_url(self, asset_id: str) -> str:
+    def get_asset_original_download_url(self, account_id: str, asset_id: str) -> str:
         """
         Retrieves the original download URL for a given asset ID.
 
         Args:
+            account_id: The ID of the account.
             asset_id: The ID of the asset.
 
         Returns:
@@ -40,14 +41,18 @@ class FrameioSourceClient:
         Raises:
             FrameioClientError: If the API call fails or the URL is not found.
         """
-        url = f"{self.BASE_URL}/assets/{asset_id}"
+        url = f"{self.BASE_URL}/accounts/{account_id}/files/{asset_id}"
+        params = {"include": "media_links.original"}
         try:
             with httpx.Client() as client:
-                response = client.get(url, headers=self._headers)
+                response = client.get(url, headers=self._headers, params=params)
                 response.raise_for_status()  # Raises HTTPStatusError for 4xx/5xx
                 data = response.json()
 
-            original_url = data.get("media_links", {}).get("original")
+            # The v4 API nests the asset data under a 'data' key
+            asset_data = data.get("data", {})
+            original_url = asset_data.get("media_links", {}).get("original", {}).get("download_url")
+
             if not original_url:
                 raise FrameioClientError(
                     f"Original download URL not found for asset '{asset_id}'."
