@@ -68,6 +68,8 @@ jobs:
           env_vars: |
             GCP_PROJECT_ID=${{ env.PROJECT_ID }}
             PUBSUB_TOPIC_NAME=frameio-events
+            FIREBASE_WEB_API_KEY=${{ secrets.FIREBASE_WEB_API_KEY }}
+            BASE_URL=${{ secrets.BASE_URL }}
           flags: |
             --allow-unauthenticated
             --max-instances=1

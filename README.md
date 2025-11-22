@@ -166,6 +166,39 @@ curl -X POST \
 
 Send a test webhook or trigger an event in Frame.io (e.g., upload a file) and check the logs to verify it's working.
 
+## Magic Link Authentication
+
+The application includes a backend-only authentication system using Firebase Magic Links.
+
+### Environment Variables
+
+The following environment variables are required for authentication:
+- `FIREBASE_WEB_API_KEY`: Your Firebase Project Web API Key.
+- `BASE_URL`: The public URL of your service (e.g., `http://localhost:8080` for local, or your Cloud Run URL).
+
+### Developer Workflow
+
+1. **Start the Service**: Ensure the service is running and environment variables are set.
+2. **Generate a Magic Link**:
+   Send a POST request to generate a link for your email:
+   ```bash
+   curl -X POST http://localhost:8080/auth/magic/send \
+     -H "Content-Type: application/json" \
+     -d '{"email": "your-email@example.com"}'
+   ```
+3. **Check Server Logs**:
+   The magic link will be printed to the server logs (stdout or Cloud Logging).
+   ```text
+   INFO: app.core.auth_service: Generated Magic Link for your-email@example.com: http://localhost:8080/auth/magic/callback?oobCode=...&email=...
+   ```
+4. **Authenticate**:
+   Copy the link from the logs and paste it into your browser.
+   - You will be authenticated via the backend.
+   - A session cookie will be set.
+   - You will be redirected to `/dashboard`.
+5. **Verify Access**:
+   The `/dashboard` endpoint will display a success message if you are authenticated.
+
 ## Viewing Logs and Webhook Payloads
 
 ### Method 1: GCP Console (Web UI)
