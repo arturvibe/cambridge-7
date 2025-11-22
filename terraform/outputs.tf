@@ -31,7 +31,14 @@ output "enabled_apis" {
     google_project_service.artifact_registry.service,
     google_project_service.iam.service,
     google_project_service.pubsub.service,
+    google_project_service.firebase.service,
+    google_project_service.identity_toolkit.service,
   ]
+}
+
+output "firebase_web_app_id" {
+  description = "Firebase Web App ID"
+  value       = google_firebase_web_app.cambridge.app_id
 }
 
 output "artifact_registry_repository" {

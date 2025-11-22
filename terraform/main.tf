@@ -6,10 +6,19 @@ terraform {
       source  = "hashicorp/google"
       version = "~> 5.0"
     }
+    google-beta = {
+      source  = "hashicorp/google-beta"
+      version = "~> 5.0"
+    }
   }
 }
 
 provider "google" {
+  project = var.project_id
+  region  = var.region
+}
+
+provider "google-beta" {
   project = var.project_id
   region  = var.region
 }
@@ -41,6 +50,37 @@ resource "google_project_service" "pubsub" {
   service = "pubsub.googleapis.com"
 
   disable_on_destroy = false
+}
+
+resource "google_project_service" "firebase" {
+  project = var.project_id
+  service = "firebase.googleapis.com"
+
+  disable_on_destroy = false
+}
+
+resource "google_project_service" "identity_toolkit" {
+  project = var.project_id
+  service = "identitytoolkit.googleapis.com"
+
+  disable_on_destroy = false
+}
+
+# Firebase project (links to existing GCP project)
+resource "google_firebase_project" "default" {
+  provider = google-beta
+  project  = var.project_id
+
+  depends_on = [google_project_service.firebase]
+}
+
+# Firebase Web App (provides Web API Key)
+resource "google_firebase_web_app" "cambridge" {
+  provider     = google-beta
+  project      = var.project_id
+  display_name = "Cambridge Auth"
+
+  depends_on = [google_firebase_project.default]
 }
 
 # Create Artifact Registry repository for Docker images

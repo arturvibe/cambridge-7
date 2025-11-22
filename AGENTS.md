@@ -228,13 +228,11 @@ cd terraform && terraform init && terraform apply
 terraform output -raw github_actions_service_account_key | base64 -d > key.json
 terraform output pubsub_topic_name          # View Pub/Sub topic name
 
-# Magic Link Authentication (local testing)
-export FIREBASE_WEB_API_KEY=your-api-key
-export BASE_URL=http://localhost:8080
+# Magic Link Authentication (with docker-compose)
 curl -X POST http://localhost:8080/auth/magic/send \
   -H "Content-Type: application/json" \
-  -d '{"email": "your-email@example.com"}'
-# Copy magic link from server logs, paste in browser → redirects to /dashboard
+  -d '{"email": "test@example.com"}'
+# Copy magic link from logs, paste in browser → /dashboard
 ```
 
 ## Deployment
@@ -278,17 +276,11 @@ curl -X POST http://localhost:8080/auth/magic/send \
 
 ## Magic Link Authentication
 
-**Flow:** `POST /auth/magic/send → Firebase generates link → User clicks link → /auth/magic/callback → Session cookie set → /dashboard`
+**Flow:** `POST /auth/magic/send → Firebase generates link → User clicks → /auth/magic/callback → Session cookie → /dashboard`
 
-**Prerequisites:**
-- Firebase project with Email Link sign-in enabled
-- `FIREBASE_WEB_API_KEY` and `BASE_URL` environment variables set
-- Callback domain added to Firebase authorized domains
+**Local Development:** `docker-compose up` starts Firebase Auth Emulator (port 9099, UI at 4000)
 
-**Session Cookie:**
-- Name: `session`
-- Duration: 14 days
-- HttpOnly, Secure (when HTTPS), SameSite=Lax
+**Production:** Set `FIREBASE_WEB_API_KEY`, `BASE_URL`, add callback domain to Firebase authorized domains
 
 ---
 *Updated: 2025-11-22 | Python 3.11 | FastAPI 0.109.0 | google-cloud-pubsub 2.21.1 | firebase-admin 6.4.0*

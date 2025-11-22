@@ -493,66 +493,27 @@ curl http://localhost:8080/dashboard -b "session=<session-cookie>"
 # Returns: {"status": "success", "message": "Welcome, you are authenticated!", ...}
 ```
 
-### Developer Workflow (Local Testing)
+### Local Development (Docker Compose)
 
-1. **Start the service** with required environment variables:
-   ```bash
-   export FIREBASE_WEB_API_KEY=your-api-key
-   export BASE_URL=http://localhost:8080
-   export GCP_PROJECT_ID=your-gcp-project-id
-   python app/main.py
-   ```
+Docker Compose includes Firebase Auth Emulator - no configuration needed:
 
-2. **Request a magic link**:
-   ```bash
-   curl -X POST http://localhost:8080/auth/magic/send \
-     -H "Content-Type: application/json" \
-     -d '{"email": "your-email@example.com"}'
-   ```
-
-3. **Copy the magic link** from the server logs:
-   ```
-   ================================================================================
-   MAGIC LINK GENERATED
-   ================================================================================
-   Email: your-email@example.com
-   Magic Link: https://your-project.firebaseapp.com/__/auth/action?mode=signIn&oobCode=...
-   ================================================================================
-   ```
-
-4. **Paste the link in your browser** - you'll be redirected to `/dashboard`
-
-5. **Verify authentication** - the dashboard shows your user information:
-   ```json
-   {
-     "status": "success",
-     "message": "Welcome, you are authenticated!",
-     "user": {
-       "uid": "firebase-user-id",
-       "email": "your-email@example.com"
-     }
-   }
-   ```
-
-### Session Cookie Details
-
-- **Name**: `session`
-- **Duration**: 14 days
-- **HttpOnly**: Yes (not accessible via JavaScript)
-- **Secure**: Yes (when BASE_URL is HTTPS)
-- **SameSite**: Lax
-
-### Local Development with Docker Compose
-
-Add the authentication environment variables to `docker-compose.yml`:
-
-```yaml
-services:
-  cambridge:
-    environment:
-      - FIREBASE_WEB_API_KEY=your-firebase-web-api-key
-      - BASE_URL=http://localhost:8080
+```bash
+docker-compose up
+curl -X POST http://localhost:8080/auth/magic/send \
+  -H "Content-Type: application/json" \
+  -d '{"email": "test@example.com"}'
+# Copy magic link from logs, paste in browser → /dashboard
 ```
+
+Firebase Emulator UI available at http://localhost:4000
+
+### Production Setup
+
+Set environment variables:
+- `FIREBASE_WEB_API_KEY` - From Firebase Console
+- `BASE_URL` - Your service URL (e.g., `https://your-service.run.app`)
+
+Add callback domain to Firebase → Authentication → Settings → Authorized domains
 
 ## Security Considerations
 
