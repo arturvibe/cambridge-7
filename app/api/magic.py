@@ -1,17 +1,18 @@
 """
-Authentication API routes.
+Magic link authentication API endpoints.
 
-Provides endpoints for magic link authentication flow:
-- POST /login: Generate magic link
-- GET /auth/callback: Handle magic link callback
-- GET /dashboard: Protected resource
+This is a driving adapter that exposes HTTP endpoints for magic link
+authentication and delegates to the auth services.
+
+The adapter is "dumb" - it only translates HTTP to Python and back.
+All business logic lives in the service layer.
 """
 
 import logging
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from fastapi.responses import RedirectResponse, Response
+from fastapi.responses import JSONResponse, RedirectResponse, Response
 from pydantic import BaseModel, EmailStr
 
 from app.auth.config import get_auth_config, AuthConfig
@@ -26,7 +27,7 @@ from app.auth.services import (
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(tags=["authentication"])
+router = APIRouter(prefix="/auth/magic", tags=["authentication"])
 
 
 # ============================================================================
@@ -34,17 +35,37 @@ router = APIRouter(tags=["authentication"])
 # ============================================================================
 
 
-class LoginRequest(BaseModel):
-    """Request body for login endpoint."""
+class MagicLinkRequest(BaseModel):
+    """Request body for magic link send endpoint."""
 
     email: EmailStr
 
 
-class LoginResponse(BaseModel):
-    """Response for login endpoint."""
+class MagicLinkResponse(BaseModel):
+    """Response for magic link send endpoint."""
 
     status: str
     message: str
+
+
+# ============================================================================
+# Dependency Functions
+# ============================================================================
+
+
+def get_magic_link_service() -> MagicLinkService:
+    """Provide MagicLinkService dependency."""
+    return MagicLinkService()
+
+
+def get_token_exchange_service() -> TokenExchangeService:
+    """Provide TokenExchangeService dependency."""
+    return TokenExchangeService()
+
+
+def get_session_cookie_service() -> SessionCookieService:
+    """Provide SessionCookieService dependency."""
+    return SessionCookieService()
 
 
 # ============================================================================
@@ -52,26 +73,27 @@ class LoginResponse(BaseModel):
 # ============================================================================
 
 
-@router.post("/login", response_model=LoginResponse)
-async def login(
-    request: LoginRequest,
+@router.post("/send", response_model=MagicLinkResponse)
+async def send_magic_link(
+    request: MagicLinkRequest,
     config: AuthConfig = Depends(get_auth_config),
-) -> LoginResponse:
+    magic_link_service: MagicLinkService = Depends(get_magic_link_service),
+) -> MagicLinkResponse:
     """
-    Generate a magic link for email authentication.
+    Generate and send a magic link for email authentication.
 
-    The magic link will be printed to the server logs.
-    The user should copy this link and paste it into their browser.
+    The magic link will be printed to the server logs for local testing.
+    Copy this link and paste it into your browser to authenticate.
 
     Args:
         request: Contains the user's email address
         config: Auth configuration
+        magic_link_service: Service for generating magic links
 
     Returns:
         Success message indicating the link was generated
     """
     try:
-        # Validate configuration
         config.validate()
     except ValueError as e:
         logger.error(f"Configuration error: {e}")
@@ -81,10 +103,9 @@ async def login(
         )
 
     try:
-        magic_link_service = MagicLinkService()
         magic_link = magic_link_service.generate_magic_link(request.email)
 
-        # Print the magic link to server logs
+        # Log the magic link for local testing
         logger.info("=" * 80)
         logger.info("MAGIC LINK GENERATED")
         logger.info("=" * 80)
@@ -104,7 +125,7 @@ async def login(
         print("Copy and paste this link in your browser to authenticate")
         print("=" * 80 + "\n")
 
-        return LoginResponse(
+        return MagicLinkResponse(
             status="success",
             message="Magic link generated - check server logs",
         )
@@ -117,18 +138,15 @@ async def login(
         )
 
 
-@router.get("/auth/callback")
-async def auth_callback(
-    oobCode: Annotated[str, Query(description="One-time out-of-band code")],
-    email: Annotated[
-        str | None,
-        Query(description="User email (may be in continueUrl or mode)"),
-    ] = None,
+@router.get("/callback")
+async def magic_link_callback(
+    oobCode: Annotated[str, Query(description="One-time out-of-band code from Firebase")],
+    email: Annotated[str | None, Query(description="User email address")] = None,
     mode: Annotated[str | None, Query(description="Firebase action mode")] = None,
-    continueUrl: Annotated[
-        str | None, Query(description="Continue URL after authentication")
-    ] = None,
+    continueUrl: Annotated[str | None, Query(description="Continue URL")] = None,
     config: AuthConfig = Depends(get_auth_config),
+    token_service: TokenExchangeService = Depends(get_token_exchange_service),
+    session_service: SessionCookieService = Depends(get_session_cookie_service),
 ) -> Response:
     """
     Handle the magic link callback from Firebase.
@@ -142,23 +160,18 @@ async def auth_callback(
 
     Args:
         oobCode: The one-time code from the magic link
-        email: User's email address (optional, extracted from link)
+        email: User's email address
         mode: Firebase action mode (e.g., 'signIn')
         continueUrl: URL to continue to after auth
         config: Auth configuration
+        token_service: Service for exchanging oobCode for ID token
+        session_service: Service for creating session cookies
 
     Returns:
         Redirect response with session cookie set
     """
-    logger.info(f"Auth callback received - oobCode present: {bool(oobCode)}")
+    logger.info(f"Magic link callback received - oobCode present: {bool(oobCode)}")
 
-    if not oobCode:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Missing oobCode parameter",
-        )
-
-    # Email is required for the sign-in process
     if not email:
         logger.error("Email not provided in callback")
         raise HTTPException(
@@ -168,24 +181,21 @@ async def auth_callback(
         )
 
     try:
-        # Step 1: Exchange oobCode for ID token
-        token_service = TokenExchangeService()
+        # Exchange oobCode for ID token
         id_token = await token_service.exchange_oob_code_for_id_token(
             oob_code=oobCode,
             email=email,
         )
 
-        # Step 2: Create session cookie
-        session_service = SessionCookieService()
+        # Create session cookie
         session_cookie = session_service.create_session_cookie(id_token)
 
-        # Step 3: Create redirect response with cookie
+        # Create redirect response with cookie
         response = RedirectResponse(
             url="/dashboard",
             status_code=status.HTTP_302_FOUND,
         )
 
-        # Set the session cookie
         response.set_cookie(
             key=config.session_cookie_name,
             value=session_cookie,
@@ -195,7 +205,7 @@ async def auth_callback(
             samesite="lax",
         )
 
-        logger.info(f"Authentication successful, redirecting to dashboard")
+        logger.info("Authentication successful, redirecting to dashboard")
         return response
 
     except AuthenticationError as e:
@@ -206,31 +216,12 @@ async def auth_callback(
         )
 
 
-@router.get("/dashboard")
-async def dashboard(
-    current_user: dict = Depends(get_current_user),
-) -> dict:
-    """
-    Protected dashboard endpoint.
+# ============================================================================
+# Protected Endpoint (Dashboard)
+# ============================================================================
 
-    Requires a valid session cookie to access.
 
-    Args:
-        current_user: User claims from validated session cookie
-
-    Returns:
-        Welcome message with user information
-    """
-    user_email = current_user.get("email", "unknown")
-    user_uid = current_user.get("uid", "unknown")
-
-    logger.info(f"Dashboard accessed by user: {user_uid}")
-
-    return {
-        "status": "success",
-        "message": "Welcome, you are authenticated!",
-        "user": {
-            "uid": user_uid,
-            "email": user_email,
-        },
-    }
+@router.get("/dashboard", include_in_schema=False)
+async def dashboard_redirect():
+    """Redirect /auth/magic/dashboard to /dashboard."""
+    return RedirectResponse(url="/dashboard", status_code=status.HTTP_302_FOUND)

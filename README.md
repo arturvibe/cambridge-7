@@ -445,19 +445,19 @@ BASE_URL=http://localhost:8080  # For local development
 
 ### Authentication Flow
 
-1. **Generate Magic Link**: Call `POST /login` with your email
+1. **Generate Magic Link**: Call `POST /auth/magic/send` with your email
 2. **Copy Link from Logs**: The magic link appears in server logs
 3. **Click Link**: Paste the link in your browser
 4. **Automatic Redirect**: You're redirected to `/dashboard` with a session cookie
 
 ### API Endpoints
 
-#### POST /login - Generate Magic Link
+#### POST /auth/magic/send - Generate Magic Link
 
 Request a magic link for email authentication.
 
 ```bash
-curl -X POST http://localhost:8080/login \
+curl -X POST http://localhost:8080/auth/magic/send \
   -H "Content-Type: application/json" \
   -d '{"email": "your-email@example.com"}'
 ```
@@ -472,7 +472,7 @@ Response:
 
 **Important**: Check the server logs/console for the actual magic link URL.
 
-#### GET /auth/callback - Magic Link Callback
+#### GET /auth/magic/callback - Magic Link Callback
 
 This endpoint is called automatically when the user clicks the magic link. It:
 1. Exchanges the Firebase oobCode for an ID token
@@ -493,18 +493,19 @@ curl http://localhost:8080/dashboard -b "session=<session-cookie>"
 # Returns: {"status": "success", "message": "Welcome, you are authenticated!", ...}
 ```
 
-### Developer Workflow
+### Developer Workflow (Local Testing)
 
 1. **Start the service** with required environment variables:
    ```bash
    export FIREBASE_WEB_API_KEY=your-api-key
    export BASE_URL=http://localhost:8080
+   export GCP_PROJECT_ID=your-gcp-project-id
    python app/main.py
    ```
 
 2. **Request a magic link**:
    ```bash
-   curl -X POST http://localhost:8080/login \
+   curl -X POST http://localhost:8080/auth/magic/send \
      -H "Content-Type: application/json" \
      -d '{"email": "your-email@example.com"}'
    ```

@@ -28,7 +28,7 @@ class AuthConfig:
     @property
     def callback_url(self) -> str:
         """URL for the magic link callback endpoint."""
-        return f"{self.base_url}/auth/callback"
+        return f"{self.base_url}/auth/magic/callback"
 
     def validate(self) -> None:
         """Validate required configuration."""

@@ -19,7 +19,12 @@ with patch.dict(
 ):
     from app.main import app
     from app.auth.config import get_auth_config, AuthConfig
-    from app.auth.dependencies import get_session_cookie_service, get_current_user
+    from app.auth.dependencies import get_current_user
+    from app.api.magic import (
+        get_magic_link_service,
+        get_token_exchange_service,
+        get_session_cookie_service,
+    )
 
 
 # ============================================================================
@@ -33,7 +38,7 @@ def mock_auth_config():
     config = MagicMock(spec=AuthConfig)
     config.firebase_web_api_key = "test-api-key"
     config.base_url = "http://localhost:8080"
-    config.callback_url = "http://localhost:8080/auth/callback"
+    config.callback_url = "http://localhost:8080/auth/magic/callback"
     config.session_cookie_name = "session"
     config.session_cookie_max_age = 1209600
     config.validate.return_value = None
@@ -56,54 +61,55 @@ def client():
 
 
 # ============================================================================
-# POST /login Tests
+# POST /auth/magic/send Tests
 # ============================================================================
 
 
-class TestLoginEndpoint:
-    """Tests for the POST /login endpoint."""
+class TestMagicLinkSendEndpoint:
+    """Tests for the POST /auth/magic/send endpoint."""
 
-    @patch("app.auth.routes.MagicLinkService")
-    def test_login_generates_magic_link(
-        self, mock_service_class, client_with_mock_config
-    ):
+    def test_send_generates_magic_link(self, mock_auth_config):
         """Test successful magic link generation."""
         # Setup service mock
         mock_service = MagicMock()
         mock_service.generate_magic_link.return_value = (
             "https://example.firebaseapp.com/__/auth/action?oobCode=test123"
         )
-        mock_service_class.return_value = mock_service
 
-        response = client_with_mock_config.post(
-            "/login",
-            json={"email": "test@example.com"},
-        )
+        app.dependency_overrides[get_auth_config] = lambda: mock_auth_config
+        app.dependency_overrides[get_magic_link_service] = lambda: mock_service
+        client = TestClient(app)
 
-        assert response.status_code == 200
-        data = response.json()
-        assert data["status"] == "success"
-        assert "Magic link generated" in data["message"]
-        mock_service.generate_magic_link.assert_called_once_with("test@example.com")
+        try:
+            response = client.post(
+                "/auth/magic/send",
+                json={"email": "test@example.com"},
+            )
 
-    def test_login_requires_email(self, client_with_mock_config):
-        """Test that login endpoint requires email field."""
-        response = client_with_mock_config.post("/login", json={})
+            assert response.status_code == 200
+            data = response.json()
+            assert data["status"] == "success"
+            assert "Magic link generated" in data["message"]
+            mock_service.generate_magic_link.assert_called_once_with("test@example.com")
+        finally:
+            app.dependency_overrides.pop(get_auth_config, None)
+            app.dependency_overrides.pop(get_magic_link_service, None)
+
+    def test_send_requires_email(self, client_with_mock_config):
+        """Test that send endpoint requires email field."""
+        response = client_with_mock_config.post("/auth/magic/send", json={})
 
         assert response.status_code == 422  # Validation error
 
-    def test_login_validates_email_format(self, client_with_mock_config):
-        """Test that login endpoint validates email format."""
+    def test_send_validates_email_format(self, client_with_mock_config):
+        """Test that send endpoint validates email format."""
         response = client_with_mock_config.post(
-            "/login", json={"email": "not-an-email"}
+            "/auth/magic/send", json={"email": "not-an-email"}
         )
 
         assert response.status_code == 422  # Validation error
 
-    @patch("app.auth.routes.MagicLinkService")
-    def test_login_handles_firebase_error(
-        self, mock_service_class, client_with_mock_config
-    ):
+    def test_send_handles_firebase_error(self, mock_auth_config):
         """Test error handling when Firebase fails."""
         from app.auth.services import AuthenticationError
 
@@ -111,17 +117,24 @@ class TestLoginEndpoint:
         mock_service.generate_magic_link.side_effect = AuthenticationError(
             "Firebase error"
         )
-        mock_service_class.return_value = mock_service
 
-        response = client_with_mock_config.post(
-            "/login", json={"email": "test@example.com"}
-        )
+        app.dependency_overrides[get_auth_config] = lambda: mock_auth_config
+        app.dependency_overrides[get_magic_link_service] = lambda: mock_service
+        client = TestClient(app)
 
-        assert response.status_code == 500
-        assert "Firebase error" in response.json()["detail"]
+        try:
+            response = client.post(
+                "/auth/magic/send", json={"email": "test@example.com"}
+            )
 
-    def test_login_requires_firebase_api_key(self):
-        """Test that login fails without Firebase API key."""
+            assert response.status_code == 500
+            assert "Firebase error" in response.json()["detail"]
+        finally:
+            app.dependency_overrides.pop(get_auth_config, None)
+            app.dependency_overrides.pop(get_magic_link_service, None)
+
+    def test_send_requires_firebase_api_key(self):
+        """Test that send fails without Firebase API key."""
         # Create config with empty API key
         invalid_config = MagicMock(spec=AuthConfig)
         invalid_config.firebase_web_api_key = ""
@@ -134,7 +147,9 @@ class TestLoginEndpoint:
         client = TestClient(app)
 
         try:
-            response = client.post("/login", json={"email": "test@example.com"})
+            response = client.post(
+                "/auth/magic/send", json={"email": "test@example.com"}
+            )
             assert response.status_code == 500
             assert "FIREBASE_WEB_API_KEY" in response.json()["detail"]
         finally:
@@ -142,50 +157,51 @@ class TestLoginEndpoint:
 
 
 # ============================================================================
-# GET /auth/callback Tests
+# GET /auth/magic/callback Tests
 # ============================================================================
 
 
-class TestAuthCallbackEndpoint:
-    """Tests for the GET /auth/callback endpoint."""
+class TestMagicLinkCallbackEndpoint:
+    """Tests for the GET /auth/magic/callback endpoint."""
 
-    @patch("app.auth.routes.SessionCookieService")
-    @patch("app.auth.routes.TokenExchangeService")
-    def test_callback_sets_session_cookie(
-        self,
-        mock_token_service_class,
-        mock_session_service_class,
-        client_with_mock_config,
-    ):
+    def test_callback_sets_session_cookie(self, mock_auth_config):
         """Test successful callback sets session cookie and redirects."""
         # Setup mocks
         mock_token_service = MagicMock()
         mock_token_service.exchange_oob_code_for_id_token = AsyncMock(
             return_value="mock-id-token"
         )
-        mock_token_service_class.return_value = mock_token_service
 
         mock_session_service = MagicMock()
         mock_session_service.create_session_cookie.return_value = "mock-session-cookie"
-        mock_session_service_class.return_value = mock_session_service
 
-        response = client_with_mock_config.get(
-            "/auth/callback",
-            params={"oobCode": "test-oob-code", "email": "test@example.com"},
-            follow_redirects=False,
-        )
+        app.dependency_overrides[get_auth_config] = lambda: mock_auth_config
+        app.dependency_overrides[get_token_exchange_service] = lambda: mock_token_service
+        app.dependency_overrides[get_session_cookie_service] = lambda: mock_session_service
+        client = TestClient(app)
 
-        # Should redirect to dashboard
-        assert response.status_code == 302
-        assert response.headers["location"] == "/dashboard"
+        try:
+            response = client.get(
+                "/auth/magic/callback",
+                params={"oobCode": "test-oob-code", "email": "test@example.com"},
+                follow_redirects=False,
+            )
 
-        # Should set session cookie
-        assert "session" in response.cookies
+            # Should redirect to dashboard
+            assert response.status_code == 302
+            assert response.headers["location"] == "/dashboard"
+
+            # Should set session cookie
+            assert "session" in response.cookies
+        finally:
+            app.dependency_overrides.pop(get_auth_config, None)
+            app.dependency_overrides.pop(get_token_exchange_service, None)
+            app.dependency_overrides.pop(get_session_cookie_service, None)
 
     def test_callback_requires_oob_code(self, client_with_mock_config):
         """Test that callback requires oobCode parameter."""
         response = client_with_mock_config.get(
-            "/auth/callback",
+            "/auth/magic/callback",
             params={"email": "test@example.com"},
         )
 
@@ -194,17 +210,14 @@ class TestAuthCallbackEndpoint:
     def test_callback_requires_email(self, client_with_mock_config):
         """Test that callback requires email parameter."""
         response = client_with_mock_config.get(
-            "/auth/callback",
+            "/auth/magic/callback",
             params={"oobCode": "test-oob-code"},
         )
 
         assert response.status_code == 400
         assert "Email parameter is required" in response.json()["detail"]
 
-    @patch("app.auth.routes.TokenExchangeService")
-    def test_callback_handles_invalid_oob_code(
-        self, mock_token_service_class, client_with_mock_config
-    ):
+    def test_callback_handles_invalid_oob_code(self, mock_auth_config):
         """Test callback handles invalid oobCode."""
         from app.auth.services import AuthenticationError
 
@@ -212,15 +225,22 @@ class TestAuthCallbackEndpoint:
         mock_token_service.exchange_oob_code_for_id_token = AsyncMock(
             side_effect=AuthenticationError("Invalid oobCode")
         )
-        mock_token_service_class.return_value = mock_token_service
 
-        response = client_with_mock_config.get(
-            "/auth/callback",
-            params={"oobCode": "invalid-code", "email": "test@example.com"},
-        )
+        app.dependency_overrides[get_auth_config] = lambda: mock_auth_config
+        app.dependency_overrides[get_token_exchange_service] = lambda: mock_token_service
+        client = TestClient(app)
 
-        assert response.status_code == 401
-        assert "Invalid oobCode" in response.json()["detail"]
+        try:
+            response = client.get(
+                "/auth/magic/callback",
+                params={"oobCode": "invalid-code", "email": "test@example.com"},
+            )
+
+            assert response.status_code == 401
+            assert "Invalid oobCode" in response.json()["detail"]
+        finally:
+            app.dependency_overrides.pop(get_auth_config, None)
+            app.dependency_overrides.pop(get_token_exchange_service, None)
 
 
 # ============================================================================
@@ -233,7 +253,6 @@ class TestDashboardEndpoint:
 
     def test_dashboard_requires_authentication(self):
         """Test that dashboard returns 401 without session cookie."""
-        # Override the get_current_user dependency to simulate no auth
         from fastapi import HTTPException, status
 
         async def no_auth_user():
@@ -254,7 +273,7 @@ class TestDashboardEndpoint:
 
     def test_dashboard_accepts_valid_session(self):
         """Test dashboard accepts valid session cookie."""
-        # Override the get_current_user dependency to return mock user
+
         async def mock_user():
             return {
                 "uid": "test-user-id",
@@ -338,7 +357,7 @@ class TestAuthConfig:
             config = AuthConfig()
             assert config.firebase_web_api_key == "test-key-123"
             assert config.base_url == "https://example.com"
-            assert config.callback_url == "https://example.com/auth/callback"
+            assert config.callback_url == "https://example.com/auth/magic/callback"
 
     def test_config_validation_requires_api_key(self):
         """Test config validation fails without API key."""
@@ -362,7 +381,7 @@ class TestMagicLinkService:
 
         # Setup mocks
         mock_config = MagicMock()
-        mock_config.callback_url = "http://localhost:8080/auth/callback"
+        mock_config.callback_url = "http://localhost:8080/auth/magic/callback"
         mock_get_config.return_value = mock_config
 
         mock_firebase = MagicMock()

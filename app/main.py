@@ -22,8 +22,9 @@ from fastapi.exceptions import RequestValidationError  # noqa: E402
 from fastapi.responses import JSONResponse  # noqa: E402
 
 from app.api import frameio  # noqa: E402
+from app.api import magic  # noqa: E402
 from app.api.frameio import get_webhook_service_dependency  # noqa: E402
-from app.auth import routes as auth_routes  # noqa: E402
+from app.auth.dependencies import get_current_user  # noqa: E402
 from app.core.exceptions import PublisherError  # noqa: E402
 from app.core.services import FrameioWebhookService  # noqa: E402
 from app.infrastructure.pubsub_publisher import GooglePubSubPublisher  # noqa: E402
@@ -163,11 +164,44 @@ async def health():
 
 
 # ============================================================================
+# Protected Endpoints
+# ============================================================================
+
+
+@app.get("/dashboard")
+async def dashboard(current_user: dict = Depends(get_current_user)):
+    """
+    Protected dashboard endpoint.
+
+    Requires a valid session cookie to access.
+
+    Args:
+        current_user: User claims from validated session cookie
+
+    Returns:
+        Welcome message with user information
+    """
+    user_email = current_user.get("email", "unknown")
+    user_uid = current_user.get("uid", "unknown")
+
+    logger.info(f"Dashboard accessed by user: {user_uid}")
+
+    return {
+        "status": "success",
+        "message": "Welcome, you are authenticated!",
+        "user": {
+            "uid": user_uid,
+            "email": user_email,
+        },
+    }
+
+
+# ============================================================================
 # Include Routers
 # ============================================================================
 
 app.include_router(frameio.router)
-app.include_router(auth_routes.router)
+app.include_router(magic.router)
 
 
 # ============================================================================
