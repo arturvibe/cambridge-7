@@ -418,6 +418,141 @@ gcloud alpha monitoring policies create \
     --condition-threshold-duration=60s
 ```
 
+## Magic Link Authentication
+
+The application includes a self-contained magic link authentication system using Firebase. This allows developers to authenticate entirely through the backend without any frontend code.
+
+### Prerequisites
+
+1. **Firebase Project**: Create a Firebase project at [Firebase Console](https://console.firebase.google.com/)
+2. **Enable Email Link Sign-In**:
+   - Go to Firebase Console → Authentication → Sign-in method
+   - Enable "Email/Password" provider
+   - Enable "Email link (passwordless sign-in)"
+3. **Firebase Service Account**: Ensure your GCP project has the Firebase Admin SDK service account configured
+4. **Authorized Domains**: Add your callback domain to Firebase → Authentication → Settings → Authorized domains
+
+### Required Environment Variables
+
+```bash
+# Firebase Web API Key (from Firebase Console → Project Settings → General)
+FIREBASE_WEB_API_KEY=your-firebase-web-api-key
+
+# Base URL where the service is running
+BASE_URL=http://localhost:8080  # For local development
+# BASE_URL=https://your-service.run.app  # For production
+```
+
+### Authentication Flow
+
+1. **Generate Magic Link**: Call `POST /login` with your email
+2. **Copy Link from Logs**: The magic link appears in server logs
+3. **Click Link**: Paste the link in your browser
+4. **Automatic Redirect**: You're redirected to `/dashboard` with a session cookie
+
+### API Endpoints
+
+#### POST /login - Generate Magic Link
+
+Request a magic link for email authentication.
+
+```bash
+curl -X POST http://localhost:8080/login \
+  -H "Content-Type: application/json" \
+  -d '{"email": "your-email@example.com"}'
+```
+
+Response:
+```json
+{
+  "status": "success",
+  "message": "Magic link generated - check server logs"
+}
+```
+
+**Important**: Check the server logs/console for the actual magic link URL.
+
+#### GET /auth/callback - Magic Link Callback
+
+This endpoint is called automatically when the user clicks the magic link. It:
+1. Exchanges the Firebase oobCode for an ID token
+2. Creates a session cookie
+3. Redirects to `/dashboard`
+
+#### GET /dashboard - Protected Resource
+
+A protected endpoint that requires authentication.
+
+```bash
+# Without authentication:
+curl http://localhost:8080/dashboard
+# Returns: 401 Unauthorized
+
+# With session cookie (after magic link authentication):
+curl http://localhost:8080/dashboard -b "session=<session-cookie>"
+# Returns: {"status": "success", "message": "Welcome, you are authenticated!", ...}
+```
+
+### Developer Workflow
+
+1. **Start the service** with required environment variables:
+   ```bash
+   export FIREBASE_WEB_API_KEY=your-api-key
+   export BASE_URL=http://localhost:8080
+   python app/main.py
+   ```
+
+2. **Request a magic link**:
+   ```bash
+   curl -X POST http://localhost:8080/login \
+     -H "Content-Type: application/json" \
+     -d '{"email": "your-email@example.com"}'
+   ```
+
+3. **Copy the magic link** from the server logs:
+   ```
+   ================================================================================
+   MAGIC LINK GENERATED
+   ================================================================================
+   Email: your-email@example.com
+   Magic Link: https://your-project.firebaseapp.com/__/auth/action?mode=signIn&oobCode=...
+   ================================================================================
+   ```
+
+4. **Paste the link in your browser** - you'll be redirected to `/dashboard`
+
+5. **Verify authentication** - the dashboard shows your user information:
+   ```json
+   {
+     "status": "success",
+     "message": "Welcome, you are authenticated!",
+     "user": {
+       "uid": "firebase-user-id",
+       "email": "your-email@example.com"
+     }
+   }
+   ```
+
+### Session Cookie Details
+
+- **Name**: `session`
+- **Duration**: 14 days
+- **HttpOnly**: Yes (not accessible via JavaScript)
+- **Secure**: Yes (when BASE_URL is HTTPS)
+- **SameSite**: Lax
+
+### Local Development with Docker Compose
+
+Add the authentication environment variables to `docker-compose.yml`:
+
+```yaml
+services:
+  cambridge:
+    environment:
+      - FIREBASE_WEB_API_KEY=your-firebase-web-api-key
+      - BASE_URL=http://localhost:8080
+```
+
 ## Security Considerations
 
 - The service is deployed with `--allow-unauthenticated` for webhook reception (required for Frame.io to send webhooks)

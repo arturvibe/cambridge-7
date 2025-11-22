@@ -23,6 +23,7 @@ from fastapi.responses import JSONResponse  # noqa: E402
 
 from app.api import frameio  # noqa: E402
 from app.api.frameio import get_webhook_service_dependency  # noqa: E402
+from app.auth import routes as auth_routes  # noqa: E402
 from app.core.exceptions import PublisherError  # noqa: E402
 from app.core.services import FrameioWebhookService  # noqa: E402
 from app.infrastructure.pubsub_publisher import GooglePubSubPublisher  # noqa: E402
@@ -166,6 +167,7 @@ async def health():
 # ============================================================================
 
 app.include_router(frameio.router)
+app.include_router(auth_routes.router)
 
 
 # ============================================================================
