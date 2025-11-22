@@ -3,7 +3,7 @@ Shared test configuration and fixtures.
 """
 
 import os
-from unittest.mock import AsyncMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
@@ -12,8 +12,8 @@ from fastapi.testclient import TestClient
 with patch.dict(os.environ, {"GCP_PROJECT_ID": "test-project"}):
     from app.main import app, get_event_publisher
 
-# Create a single mock publisher for all tests with async publish method
-mock_event_publisher = AsyncMock()
+# Create a single mock publisher for all tests
+mock_event_publisher = MagicMock()
 
 # Use FastAPI's dependency_overrides to replace the real publisher with our mock
 app.dependency_overrides[get_event_publisher] = lambda: mock_event_publisher
