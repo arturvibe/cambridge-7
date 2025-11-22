@@ -5,6 +5,7 @@ This is a driven adapter that implements the EventPublisher port
 defined in the core domain.
 """
 
+import asyncio
 import json
 import logging
 import os
@@ -57,13 +58,16 @@ class GooglePubSubPublisher:
         else:
             logger.info(f"Pub/Sub publisher initialized for topic: {self.topic_path}")
 
-    def publish(self, event: FrameIOEvent) -> Optional[str]:
+    async def publish(self, event: FrameIOEvent) -> Optional[str]:
         """
-        Publish a domain event to the Pub/Sub topic.
+        Publish a domain event to the Pub/Sub topic asynchronously.
 
         This is an infrastructure adapter - it handles serialization of the
         domain object to JSON for Pub/Sub. The core domain works with domain
         objects; this adapter translates them to infrastructure format.
+
+        Uses asyncio.to_thread() to avoid blocking the event loop while waiting
+        for the Pub/Sub publish to complete.
 
         Args:
             event: The domain event to publish
@@ -83,13 +87,13 @@ class GooglePubSubPublisher:
                 "resource_id": event.resource_id,
             }
 
-            # Publish message
+            # Publish message (returns a future immediately)
             future = self.publisher.publish(
                 self.topic_path, message_bytes, **attributes
             )
 
-            # Wait for the publish to complete and get message ID
-            message_id: str = future.result(timeout=5.0)
+            # Wait for the result in a thread pool to avoid blocking the event loop
+            message_id: str = await asyncio.to_thread(future.result, 10.0)
             logger.info(f"Published message to Pub/Sub: {message_id}")
 
             return message_id

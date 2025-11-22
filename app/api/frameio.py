@@ -51,7 +51,7 @@ async def frameio_webhook(
     - Payload structure with type, resource, account, workspace, project, user
     """
     # Delegate to core service - all business logic happens there
-    message_id = webhook_service.process_webhook(
+    message_id = await webhook_service.process_webhook(
         event=event,
         headers=dict(request.headers),
         client_ip=request.client.host if request.client else "unknown",

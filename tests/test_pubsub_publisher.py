@@ -12,6 +12,10 @@ from app.core.domain import FrameIOEvent
 from app.infrastructure.pubsub_publisher import GooglePubSubPublisher
 
 
+# Mark all tests in this module as async
+pytestmark = pytest.mark.asyncio
+
+
 @pytest.fixture
 def sample_event():
     """Create a sample FrameIOEvent for testing."""
@@ -83,8 +87,11 @@ class TestGooglePubSubPublisher:
 class TestGooglePubSubPublish:
     """Test publishing messages to Pub/Sub."""
 
+    @patch("app.infrastructure.pubsub_publisher.asyncio.to_thread")
     @patch("app.infrastructure.pubsub_publisher.pubsub_v1.PublisherClient")
-    def test_publish_message_success(self, mock_publisher_class, sample_event):
+    async def test_publish_message_success(
+        self, mock_publisher_class, mock_to_thread, sample_event
+    ):
         """Test successful message publishing with domain event."""
         mock_publisher = MagicMock()
         mock_publisher_class.return_value = mock_publisher
@@ -92,10 +99,12 @@ class TestGooglePubSubPublish:
             "projects/test-project/topics/test-topic"
         )
 
-        # Mock the future result
+        # Mock the future
         mock_future = MagicMock()
-        mock_future.result.return_value = "test-message-id"
         mock_publisher.publish.return_value = mock_future
+
+        # Mock asyncio.to_thread to return the message ID
+        mock_to_thread.return_value = "test-message-id"
 
         with patch.dict(
             os.environ,
@@ -103,7 +112,7 @@ class TestGooglePubSubPublish:
         ):
             publisher = GooglePubSubPublisher()
 
-            message_id = publisher.publish(sample_event)
+            message_id = await publisher.publish(sample_event)
 
             assert message_id == "test-message-id"
             mock_publisher.publish.assert_called_once()
@@ -114,8 +123,13 @@ class TestGooglePubSubPublish:
             assert call_kwargs["resource_type"] == "file"
             assert call_kwargs["resource_id"] == "test-file-123"
 
+            # Verify asyncio.to_thread was called with the future's result method
+            mock_to_thread.assert_called_once_with(mock_future.result, 10.0)
+
     @patch("app.infrastructure.pubsub_publisher.pubsub_v1.PublisherClient")
-    def test_publish_handles_not_found_error(self, mock_publisher_class, sample_event):
+    async def test_publish_handles_not_found_error(
+        self, mock_publisher_class, sample_event
+    ):
         """Test publish handles topic not found errors."""
         mock_publisher = MagicMock()
         mock_publisher_class.return_value = mock_publisher
@@ -132,12 +146,12 @@ class TestGooglePubSubPublish:
         ):
             publisher = GooglePubSubPublisher()
 
-            message_id = publisher.publish(sample_event)
+            message_id = await publisher.publish(sample_event)
 
             assert message_id is None
 
     @patch("app.infrastructure.pubsub_publisher.pubsub_v1.PublisherClient")
-    def test_publish_handles_permission_denied_error(
+    async def test_publish_handles_permission_denied_error(
         self, mock_publisher_class, sample_event
     ):
         """Test publish handles permission denied errors."""
@@ -158,12 +172,15 @@ class TestGooglePubSubPublish:
         ):
             publisher = GooglePubSubPublisher()
 
-            message_id = publisher.publish(sample_event)
+            message_id = await publisher.publish(sample_event)
 
             assert message_id is None
 
+    @patch("app.infrastructure.pubsub_publisher.asyncio.to_thread")
     @patch("app.infrastructure.pubsub_publisher.pubsub_v1.PublisherClient")
-    def test_publish_handles_generic_error(self, mock_publisher_class, sample_event):
+    async def test_publish_handles_generic_error(
+        self, mock_publisher_class, mock_to_thread, sample_event
+    ):
         """Test publish handles generic errors gracefully."""
         mock_publisher = MagicMock()
         mock_publisher_class.return_value = mock_publisher
@@ -171,8 +188,8 @@ class TestGooglePubSubPublish:
             "projects/test-project/topics/test-topic"
         )
 
-        # Mock publish to raise generic exception
-        mock_publisher.publish.side_effect = Exception("Network error")
+        # Mock asyncio.to_thread to raise an exception
+        mock_to_thread.side_effect = Exception("Network error")
 
         with patch.dict(
             os.environ,
@@ -180,7 +197,7 @@ class TestGooglePubSubPublish:
         ):
             publisher = GooglePubSubPublisher()
 
-            message_id = publisher.publish(sample_event)
+            message_id = await publisher.publish(sample_event)
 
             assert message_id is None
 

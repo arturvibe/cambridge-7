@@ -21,9 +21,9 @@ class EventPublisher(Protocol):
     adapter is responsible for serialization.
     """
 
-    def publish(self, event: FrameIOEvent) -> Optional[str]:
+    async def publish(self, event: FrameIOEvent) -> Optional[str]:
         """
-        Publish a domain event.
+        Publish a domain event asynchronously.
 
         Args:
             event: The domain event to publish

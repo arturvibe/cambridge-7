@@ -33,14 +33,14 @@ class FrameioWebhookService:
         """
         self.event_publisher = event_publisher
 
-    def process_webhook(
+    async def process_webhook(
         self,
         event: FrameIOEvent,
         headers: Dict[str, str],
         client_ip: str,
     ) -> str:
         """
-        Process a Frame.io webhook event.
+        Process a Frame.io webhook event asynchronously.
 
         This is the core business logic:
         1. Log the webhook event (structured JSON for Cloud Logging)
@@ -80,7 +80,7 @@ class FrameioWebhookService:
         # Publish event to downstream consumers
         # Pass the domain object - infrastructure layer handles serialization
         try:
-            message_id = self.event_publisher.publish(event)
+            message_id = await self.event_publisher.publish(event)
         except Exception as e:
             # Publishing failed - raise domain exception
             raise PublisherError(f"Failed to publish event: {str(e)}") from e
