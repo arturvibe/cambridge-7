@@ -158,7 +158,7 @@ docker build -t cambridge . && docker run -p 8080:8080 cambridge
 1. Run tests: `pytest --cov=app --cov-report=term-missing`
 2. For features: Add to app/main.py → Add tests → Update README → Commit (`feat:`)
 3. For bugs: Write failing test → Fix → Verify → Commit (`fix:`)
-4. Before commit: `black app/ tests/` + verify commit format
+4. Before commit: You MUST run `pre-commit run --all-files` and fix any errors.
 
 **Common tasks:**
 - Add webhook field: Extract in app/main.py → Log + Publish to Pub/Sub → Add tests
@@ -185,7 +185,7 @@ docker build -t cambridge . && docker run -p 8080:8080 cambridge
 # Development
 python app/main.py                              # Run locally
 pytest --cov=app --cov-report=term-missing      # Test
-black app/ tests/                               # Format
+pre-commit run --all-files                      # Format & Lint
 
 # Docker
 docker build -t cambridge . && docker run -p 8080:8080 cambridge
