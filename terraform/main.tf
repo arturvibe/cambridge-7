@@ -292,3 +292,33 @@ resource "google_identity_platform_config" "default" {
     google_project_service.identity_toolkit,
   ]
 }
+
+# Firebase Hosting Site
+resource "google_firebase_hosting_site" "default" {
+  provider = google-beta
+  project  = var.project_id
+  site_id  = var.project_id
+}
+
+resource "null_resource" "prepare_hosting_files" {
+  triggers = {
+    always_run = timestamp()
+  }
+
+  provisioner "local-exec" {
+    command = "cp -r ../client/* ."
+  }
+}
+
+resource "google_firebase_hosting_version" "default" {
+  provider = google-beta
+  site_id  = google_firebase_hosting_site.default.site_id
+  config {
+    rewrites {
+      glob    = "**"
+      function = "helloWorld"
+    }
+  }
+
+  depends_on = [null_resource.prepare_hosting_files]
+}

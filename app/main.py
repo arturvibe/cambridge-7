@@ -20,6 +20,7 @@ setup_global_logging()
 from fastapi import Depends, FastAPI, Request, status  # noqa: E402
 from fastapi.exceptions import RequestValidationError  # noqa: E402
 from fastapi.responses import JSONResponse  # noqa: E402
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.api import auth, frameio  # noqa: E402
 from app.api.frameio import get_webhook_service_dependency  # noqa: E402
@@ -65,6 +66,14 @@ app = FastAPI(
     description="Receives and logs Frame.io V4 webhooks",
     version="1.0.0",
     lifespan=lifespan,
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["https://<your-firebase-project-id>.web.app"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 

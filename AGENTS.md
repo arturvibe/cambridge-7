@@ -24,6 +24,14 @@ This application uses Firebase Authentication for magic link (passwordless) logi
 - **Authentication Method:** The "Email/Password" sign-in provider must be enabled in the Firebase console, with "Email link (passwordless sign-in)" enabled.
 - **Service Account:** The Cloud Run service account must have the "Firebase Admin" IAM role.
 
+## Client-Side Application
+
+A simple client-side application is provided in the `client/` directory to demonstrate the authentication flow.
+
+**Setup:**
+1.  **Firebase Configuration:** Open `client/main.js` and replace the placeholder `firebaseConfig` with your project's actual Firebase configuration.
+2.  **CORS Configuration:** In `app/main.py`, update the `CORSMiddleware` to allow requests from your Firebase Hosting URL (e.g., `https://<your-firebase-project-id>.web.app`).
+
 ## Architecture
 
 **Hexagonal Architecture (Ports & Adapters):**
@@ -240,7 +248,11 @@ terraform output pubsub_topic_name          # View Pub/Sub topic name
 
 **Branch pattern:** `agent/agents-md-<session-id>` (never push to main)
 
-**Process:** Commit → Tests auto-run → Manual deploy via Actions
+**Backend Deployment:**
+Commit → Tests auto-run → Manual deploy via Actions
+
+**Frontend Deployment:**
+The client-side application is deployed to Firebase Hosting via the Terraform configuration. To deploy the frontend, run `terraform apply` in the `terraform/` directory.
 
 **Blue-Green Deployment:**
 1. **Deploy (no traffic):** New revision deployed with `--no-traffic` flag, tagged with short SHA (8 chars)
