@@ -10,6 +10,8 @@ import logging
 from datetime import UTC, datetime, timedelta
 from typing import Dict
 
+from fastapi import Depends, HTTPException, status
+from fastapi.security import APIKeyCookie
 from app.core.domain import FrameIOEvent
 from app.core.exceptions import PublisherError
 from app.core.ports import EventPublisher
@@ -17,6 +19,7 @@ from firebase_admin import auth
 
 logger = logging.getLogger(__name__)
 
+cookie_scheme = APIKeyCookie(name="session", auto_error=False)
 
 class AuthService:
     """
@@ -30,6 +33,24 @@ class AuthService:
         expires_in = timedelta(days=expires_in_days)
         session_cookie = auth.create_session_cookie(id_token, expires_in=expires_in)
         return session_cookie
+
+    async def get_current_user(self, session: str = Depends(cookie_scheme)):
+        """
+        Dependency to verify the session cookie and return the user.
+        """
+        if not session:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Not authenticated",
+            )
+        try:
+            decoded_claims = auth.verify_session_cookie(session, check_revoked=True)
+            return decoded_claims
+        except auth.InvalidSessionCookieError:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid session cookie",
+            )
 
 
 class FrameioWebhookService:

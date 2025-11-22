@@ -26,7 +26,7 @@ def test_get_user_profile_unauthenticated():
     assert response.status_code == 401
     assert response.json() == {"detail": "Not authenticated"}
 
-@patch("app.api.dependencies.auth.verify_session_cookie")
+@patch("app.core.services.auth.verify_session_cookie")
 def test_get_user_profile_authenticated(mock_verify_session_cookie):
     mock_verify_session_cookie.return_value = {"uid": "test_uid"}
     response = client.get("/users/me", cookies={"session": "test_session_cookie"})

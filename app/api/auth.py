@@ -2,7 +2,6 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, EmailStr
 from app.core.services import AuthService
-from app.api.dependencies import get_current_user
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
@@ -48,7 +47,9 @@ async def logout():
 router_users = APIRouter(prefix="/users", tags=["Users"])
 
 @router_users.get("/me")
-async def get_user_profile(current_user: dict = Depends(get_current_user)):
+async def get_user_profile(
+    current_user: dict = Depends(AuthService().get_current_user),
+):
     """
     Returns the profile of the currently authenticated user.
     """
