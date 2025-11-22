@@ -1,5 +1,4 @@
 import logging
-import os
 from urllib.parse import parse_qs, urlparse
 
 from app.infrastructure.firebase_auth import FirebaseAuthAdapter
@@ -16,20 +15,22 @@ class AuthService:
 
     def __init__(self, auth_adapter: FirebaseAuthAdapter):
         self.auth_adapter = auth_adapter
-        self.base_url = os.getenv("BASE_URL", "http://localhost:8080").rstrip("/")
 
-    async def send_magic_link(self, email: str) -> str:
+    async def send_magic_link(self, email: str, base_url: str) -> str:
         """
         Generate a magic link that points directly to this application.
 
         Args:
             email: The user's email address
+            base_url: The base URL of the application
 
         Returns:
             The direct magic link URL
         """
+        # Ensure no trailing slash
+        base_url = base_url.rstrip("/")
         # We use the callback URL as the continue URL, although we're hijacking the flow
-        callback_url = f"{self.base_url}/auth/magic/callback"
+        callback_url = f"{base_url}/auth/magic/callback"
 
         # Generate the standard Firebase link
         # This returns a link to project.firebaseapp.com

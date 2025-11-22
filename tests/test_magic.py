@@ -49,7 +49,7 @@ class TestMagicLink:
         assert "Magic link generated" in response.json()["message"]
 
         # Verify log contains the direct link
-        assert "http://localhost:8080/auth/magic/callback" in caplog.text
+        assert "http://testserver/auth/magic/callback" in caplog.text
         assert "oobCode=TEST_CODE" in caplog.text
         assert f"email={email}" in caplog.text
 

@@ -54,16 +54,24 @@ async def get_current_user(
 @router.post("/send")
 async def send_magic_link(
     request: MagicLinkRequest,
+    req: Request,
     auth_service: AuthService = Depends(get_auth_service_dependency),
 ):
     """
     Generate and log a magic link for the given email.
     """
     try:
+        # Extract base URL from request
+        base_url = str(req.base_url)
+
+        # If running in Cloud Run (K_SERVICE exists), ensure HTTPS
+        if os.getenv("K_SERVICE") and base_url.startswith("http://"):
+            base_url = base_url.replace("http://", "https://", 1)
+
         # The service handles generating the link and logging it.
         # We don't return the link to the client for security/workflow reasons
         # (it's printed to logs for the developer).
-        await auth_service.send_magic_link(request.email)
+        await auth_service.send_magic_link(request.email, base_url)
 
         return {"message": "Magic link generated. Check server logs."}
     except Exception as e:

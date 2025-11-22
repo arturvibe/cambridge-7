@@ -174,7 +174,6 @@ The application includes a backend-only authentication system using Firebase Mag
 
 The following environment variables are required for authentication:
 - `FIREBASE_WEB_API_KEY`: Your Firebase Project Web API Key.
-- `BASE_URL`: The public URL of your service (e.g., `http://localhost:8080` for local, or your Cloud Run URL).
 
 ### Developer Workflow
 
