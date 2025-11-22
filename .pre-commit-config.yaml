@@ -13,7 +13,21 @@ repos:
     rev: 24.1.1
     hooks:
       - id: black
-        language_version: python3.11
+        files: ^(app|tests)/.*\.py$
+
+  # Python Linting (Flake8)
+  - repo: https://github.com/pycqa/flake8
+    rev: 7.0.0
+    hooks:
+      - id: flake8
+        files: ^(app|tests)/.*\.py$
+
+  # Static Type Checking (Mypy)
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.8.0
+    hooks:
+      - id: mypy
+        additional_dependencies: [pydantic]
         files: ^(app|tests)/.*\.py$
 
   # General file checks
