@@ -2,9 +2,35 @@
 
 FastAPI webhook receiver for Frame.io V4 → logs payloads to GCP Cloud Run → publishes to Pub/Sub → viewable via Cloud Logging.
 
-**Stack:** Python 3.11 • FastAPI 0.109.0 • Pydantic v2 • google-cloud-logging • google-cloud-pubsub • Docker • GCP Cloud Run • Terraform
+**Stack:** Python 3.11 • FastAPI 0.109.0 • Pydantic v2 • google-cloud-logging • google-cloud-pubsub • Docker • GCP Cloud Run • Terraform • Firebase Authentication
 
 **Flow:** `Frame.io → /api/v1/frameio/webhook → [Validate → Log → Publish to Pub/Sub] → Cloud Logging`
+
+## Authentication
+
+This application uses Firebase Authentication for magic link (passwordless) login.
+
+**Authentication Flow:**
+1.  **Client-Side Sign-in:** The user initiates the magic link sign-in flow on the client-side application.
+2.  **Firebase Sends Email:** Firebase sends an email to the user with a unique sign-in link.
+3.  **User Clicks Link:** The user clicks the link in the email, which signs them in and redirects them back to the client-side application.
+4.  **Frontend Gets ID Token:** The frontend retrieves the ID token from the redirect URL.
+5.  **Frontend Sends ID Token:** The frontend sends the ID token to the backend's `/auth/session-login` endpoint.
+6.  **Backend Creates Session:** The backend verifies the ID token, creates a session cookie, and returns it to the frontend.
+7.  **Authenticated Requests:** The frontend includes the session cookie in all subsequent requests to protected endpoints.
+
+**Firebase Configuration:**
+- **Firebase Project:** A Firebase project must be created and linked to the GCP project.
+- **Authentication Method:** The "Email/Password" sign-in provider must be enabled in the Firebase console, with "Email link (passwordless sign-in)" enabled.
+- **Service Account:** The Cloud Run service account must have the "Firebase Admin" IAM role.
+
+## Client-Side Application
+
+A simple client-side application is provided in the `client/` directory to demonstrate the authentication flow.
+
+**Setup:**
+1.  **Firebase Configuration:** Open `client/main.js` and replace the placeholder `firebaseConfig` with your project's actual Firebase configuration.
+2.  **CORS Configuration:** In `app/main.py`, update the `CORSMiddleware` to allow requests from your Firebase Hosting URL (e.g., `https://<your-firebase-project-id>.web.app`).
 
 ## Architecture
 
@@ -110,6 +136,9 @@ docker build -t cambridge . && docker run -p 8080:8080 cambridge
 - `GET /` - Health check with service info
 - `GET /health` - Simple health check
 - `POST /api/v1/frameio/webhook` - Receives Frame.io webhooks, validates, logs, publishes to Pub/Sub
+- `POST /auth/session-login` - Verifies an ID token and creates a session cookie.
+- `POST /auth/logout` - Logs the user out by clearing the session cookie.
+- `GET /users/me` - Returns the profile of the currently authenticated user.
 
 **HTTP Status Codes:**
 - `200 OK` - Event successfully published, returns `{"message_id": "..."}`
@@ -219,7 +248,11 @@ terraform output pubsub_topic_name          # View Pub/Sub topic name
 
 **Branch pattern:** `agent/agents-md-<session-id>` (never push to main)
 
-**Process:** Commit → Tests auto-run → Manual deploy via Actions
+**Backend Deployment:**
+Commit → Tests auto-run → Manual deploy via Actions
+
+**Frontend Deployment:**
+The client-side application is deployed to Firebase Hosting via the Terraform configuration. To deploy the frontend, run `terraform apply` in the `terraform/` directory.
 
 **Blue-Green Deployment:**
 1. **Deploy (no traffic):** New revision deployed with `--no-traffic` flag, tagged with short SHA (8 chars)

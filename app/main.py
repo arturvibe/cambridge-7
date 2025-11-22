@@ -20,11 +20,13 @@ setup_global_logging()
 from fastapi import Depends, FastAPI, Request, status  # noqa: E402
 from fastapi.exceptions import RequestValidationError  # noqa: E402
 from fastapi.responses import JSONResponse  # noqa: E402
+from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import frameio  # noqa: E402
+from app.api import auth, frameio  # noqa: E402
 from app.api.frameio import get_webhook_service_dependency  # noqa: E402
 from app.core.exceptions import PublisherError  # noqa: E402
-from app.core.services import FrameioWebhookService  # noqa: E402
+from app.core.services import AuthService, FrameioWebhookService  # noqa: E402
+from app.infrastructure.firebase_client import initialize_firebase_app  # noqa: E402
 from app.infrastructure.pubsub_publisher import GooglePubSubPublisher  # noqa: E402
 
 logger = logging.getLogger(__name__)
@@ -42,8 +44,13 @@ async def lifespan(app: FastAPI):
 
     Handles startup and shutdown events using modern FastAPI pattern.
     """
-    # Startup: nothing to do (dependencies are lazy-loaded)
+    # Startup: initialize Firebase
     logger.info("Application starting up...")
+    try:
+        initialize_firebase_app()
+        logger.info("Firebase Admin SDK initialized successfully.")
+    except Exception as e:
+        logger.error(f"Failed to initialize Firebase Admin SDK: {e}", exc_info=True)
     yield
     # Shutdown: cleanup resources
     logger.info("Shutting down application...")
@@ -59,6 +66,14 @@ app = FastAPI(
     description="Receives and logs Frame.io V4 webhooks",
     version="1.0.0",
     lifespan=lifespan,
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["https://<your-firebase-project-id>.web.app"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 
@@ -166,6 +181,8 @@ async def health():
 # ============================================================================
 
 app.include_router(frameio.router)
+app.include_router(auth.router)
+app.include_router(auth.router_users)
 
 
 # ============================================================================
