@@ -37,16 +37,11 @@ jobs:
           path: ~/.cache/pre-commit
           key: pre-commit-${{ runner.os }}-${{ hashFiles('.pre-commit-config.yaml') }}
 
-      - name: Run pre-commit
-        run: |
-          pre-commit run --all-files
-
       - name: Terraform Init
         id: init
         run: terraform init -backend=false
         working-directory: ./terraform
 
-      - name: Terraform Validate
-        id: validate
-        run: terraform validate -no-color
-        working-directory: ./terraform
+      - name: Run pre-commit
+        run: |
+          pre-commit run --all-files
