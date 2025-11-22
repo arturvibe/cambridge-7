@@ -2,7 +2,7 @@
 
 FastAPI webhook receiver for Frame.io V4 → logs payloads to GCP Cloud Run → publishes to Pub/Sub → viewable via Cloud Logging.
 
-**Stack:** Python 3.11 • FastAPI 0.109.0 • Pydantic v2 • google-cloud-logging • google-cloud-pubsub • Docker • GCP Cloud Run • Terraform
+**Stack:** Python 3.11 • FastAPI 0.109.0 • Pydantic v2 • google-cloud-logging • google-cloud-pubsub • firebase-admin • Docker • GCP Cloud Run • Terraform
 
 **Flow:** `Frame.io → /api/v1/frameio/webhook → [Validate → Log → Publish to Pub/Sub] → Cloud Logging`
 
@@ -12,7 +12,8 @@ FastAPI webhook receiver for Frame.io V4 → logs payloads to GCP Cloud Run → 
 ```
 ┌─────────────────────────────────────────┐
 │ Driving Adapters (app/api/)             │
-│ - frameio.py: HTTP endpoint (dumb)      │
+│ - frameio.py: Webhook endpoint (dumb)   │
+│ - magic.py: Auth endpoints (dumb)       │
 └─────────────────┬───────────────────────┘
                   ↓
 ┌─────────────────────────────────────────┐
@@ -21,6 +22,11 @@ FastAPI webhook receiver for Frame.io V4 → logs payloads to GCP Cloud Run → 
 │ - services.py: Business logic (smart)   │
 │ - ports.py: EventPublisher interface    │
 │ - exceptions.py: Domain exceptions      │
+├─────────────────────────────────────────┤
+│ Auth Module (app/auth/)                 │
+│ - config.py: Firebase configuration     │
+│ - services.py: Auth business logic      │
+│ - dependencies.py: Session validation   │
 └─────────────────┬───────────────────────┘
                   ↓
 ┌─────────────────────────────────────────┐
@@ -37,15 +43,20 @@ FastAPI webhook receiver for Frame.io V4 → logs payloads to GCP Cloud Run → 
 ## Structure
 
 **Core files:**
-- `app/main.py` - FastAPI app wiring, dependency injection, centralized exception handlers
-- `app/api/frameio.py` - HTTP endpoint (dumb adapter, delegates to service)
+- `app/main.py` - FastAPI app wiring, dependency injection, centralized exception handlers, /dashboard endpoint
+- `app/api/frameio.py` - Frame.io webhook endpoint (dumb adapter, delegates to service)
+- `app/api/magic.py` - Magic link auth endpoints (dumb adapter, /auth/magic/send, /auth/magic/callback)
 - `app/core/domain.py` - FrameIOEvent domain model (Pydantic v2)
 - `app/core/services.py` - Business logic (logging, publishing, validation)
 - `app/core/ports.py` - EventPublisher port (interface)
 - `app/core/exceptions.py` - Domain exceptions (PublisherError, InvalidWebhookError)
+- `app/auth/config.py` - Firebase Admin SDK configuration and initialization
+- `app/auth/services.py` - Auth services (MagicLinkService, TokenExchangeService, SessionCookieService)
+- `app/auth/dependencies.py` - FastAPI dependencies for session cookie validation
 - `app/infrastructure/pubsub_publisher.py` - Pub/Sub implementation
 - `app/logging_config.py` - Logging configuration with Cloud Run detection
 - `tests/test_webhook.py` - Webhook endpoint tests
+- `tests/test_auth.py` - Magic link authentication tests
 - `tests/test_pubsub_integration.py` - Pub/Sub integration tests
 - `tests/test_pubsub_publisher.py` - Publisher unit tests (90%+ coverage)
 - `tests/test_health.py` - Health endpoint tests
@@ -110,6 +121,9 @@ docker build -t cambridge . && docker run -p 8080:8080 cambridge
 - `GET /` - Health check with service info
 - `GET /health` - Simple health check
 - `POST /api/v1/frameio/webhook` - Receives Frame.io webhooks, validates, logs, publishes to Pub/Sub
+- `POST /auth/magic/send` - Generate magic link for email authentication (link printed to logs)
+- `GET /auth/magic/callback` - Firebase callback, exchanges oobCode for session cookie, redirects to /dashboard
+- `GET /dashboard` - Protected endpoint, requires valid session cookie
 
 **HTTP Status Codes:**
 - `200 OK` - Event successfully published, returns `{"message_id": "..."}`
@@ -213,6 +227,14 @@ gcloud pubsub topics publish frameio-events --message='{"test": "message"}'
 cd terraform && terraform init && terraform apply
 terraform output -raw github_actions_service_account_key | base64 -d > key.json
 terraform output pubsub_topic_name          # View Pub/Sub topic name
+
+# Magic Link Authentication (local testing)
+export FIREBASE_WEB_API_KEY=your-api-key
+export BASE_URL=http://localhost:8080
+curl -X POST http://localhost:8080/auth/magic/send \
+  -H "Content-Type: application/json" \
+  -d '{"email": "your-email@example.com"}'
+# Copy magic link from server logs, paste in browser → redirects to /dashboard
 ```
 
 ## Deployment
@@ -233,6 +255,8 @@ terraform output pubsub_topic_name          # View Pub/Sub topic name
 - `PUBSUB_TOPIC_NAME` - Pub/Sub topic name (required)
 - `PUBSUB_EMULATOR_HOST` - Pub/Sub emulator host (local dev only, e.g., `localhost:8085`)
 - `K_SERVICE` - Auto-set by Cloud Run (triggers structured logging)
+- `FIREBASE_WEB_API_KEY` - Firebase Web API key (required for magic link auth)
+- `BASE_URL` - Public URL of the service (default: `http://localhost:8080`)
 
 ## Frame.io Integration
 
@@ -252,5 +276,19 @@ terraform output pubsub_topic_name          # View Pub/Sub topic name
 - Pub/Sub emulator not working → Ensure PUBSUB_EMULATOR_HOST is set, topic/subscription created (run setup script)
 - Messages not in Pub/Sub → Check application logs for publishing errors, verify topic exists
 
+## Magic Link Authentication
+
+**Flow:** `POST /auth/magic/send → Firebase generates link → User clicks link → /auth/magic/callback → Session cookie set → /dashboard`
+
+**Prerequisites:**
+- Firebase project with Email Link sign-in enabled
+- `FIREBASE_WEB_API_KEY` and `BASE_URL` environment variables set
+- Callback domain added to Firebase authorized domains
+
+**Session Cookie:**
+- Name: `session`
+- Duration: 14 days
+- HttpOnly, Secure (when HTTPS), SameSite=Lax
+
 ---
-*Updated: 2025-11-16 | Python 3.11 | FastAPI 0.109.0 | google-cloud-pubsub 2.21.1*
+*Updated: 2025-11-22 | Python 3.11 | FastAPI 0.109.0 | google-cloud-pubsub 2.21.1 | firebase-admin 6.4.0*
