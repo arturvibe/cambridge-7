@@ -93,7 +93,7 @@ class GooglePubSubPublisher:
             )
 
             # Wait for the publish to complete and get message ID
-            message_id: str = future.result(timeout=10.0)
+            message_id: str = future.result(timeout=5.0)
             logger.info(f"Published message to Pub/Sub: {message_id}")
 
             return message_id
