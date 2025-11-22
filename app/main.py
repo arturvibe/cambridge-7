@@ -21,10 +21,13 @@ from fastapi import Depends, FastAPI, Request, status  # noqa: E402
 from fastapi.exceptions import RequestValidationError  # noqa: E402
 from fastapi.responses import JSONResponse  # noqa: E402
 
-from app.api import frameio  # noqa: E402
+from app.api import frameio, magic  # noqa: E402
 from app.api.frameio import get_webhook_service_dependency  # noqa: E402
+from app.api.magic import get_auth_service_dependency  # noqa: E402
+from app.core.auth_service import AuthService  # noqa: E402
 from app.core.exceptions import PublisherError  # noqa: E402
 from app.core.services import FrameioWebhookService  # noqa: E402
+from app.infrastructure.firebase_auth import FirebaseAuthAdapter  # noqa: E402
 from app.infrastructure.pubsub_publisher import GooglePubSubPublisher  # noqa: E402
 
 logger = logging.getLogger(__name__)
@@ -88,8 +91,26 @@ def get_webhook_service(
     return FrameioWebhookService(event_publisher=event_publisher)
 
 
+@lru_cache()
+def get_auth_adapter() -> FirebaseAuthAdapter:
+    """
+    Provide the Firebase Auth adapter dependency.
+    """
+    return FirebaseAuthAdapter()
+
+
+def get_auth_service(
+    adapter: FirebaseAuthAdapter = Depends(get_auth_adapter),
+) -> AuthService:
+    """
+    Provide the auth service dependency.
+    """
+    return AuthService(auth_adapter=adapter)
+
+
 # Override the dependency in the router to use our wired service
 app.dependency_overrides[get_webhook_service_dependency] = get_webhook_service
+app.dependency_overrides[get_auth_service_dependency] = get_auth_service
 
 
 # ============================================================================
@@ -166,6 +187,8 @@ async def health():
 # ============================================================================
 
 app.include_router(frameio.router)
+app.include_router(magic.router)
+app.include_router(magic.dashboard_router)
 
 
 # ============================================================================
