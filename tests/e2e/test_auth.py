@@ -199,7 +199,7 @@ class TestMagicLinkE2E:
 
         magic_link = extract_magic_link_from_logs(caplog)
 
-        # Email should be in the continueUrl
+        # Verify email is included in the magic link
         email = extract_email_from_link(magic_link)
         assert email == test_email
 
