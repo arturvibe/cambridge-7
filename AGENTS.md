@@ -114,14 +114,14 @@ docker build -t cambridge . && docker run -p 8080:8080 cambridge
   - Config: `app/logging_config.py` with `setup_global_logging()`
   - Cloud Run: google-cloud-logging with trace correlation (detected via K_SERVICE env var)
   - Local/Test: Standard Python logging to stdout
-  - Structured JSON: Single log entry per webhook (see app/core/services.py:60-78)
+  - Structured JSON: Single log entry with `json.dumps()` (see app/core/services.py:60-78, app/api/magic.py:108-114)
 - **Tests:** 90%+ coverage, Test* classes, descriptive names, fixtures, test contracts not implementation
 
 **Endpoints:**
 - `GET /` - Health check with service info
 - `GET /health` - Simple health check
 - `POST /api/v1/frameio/webhook` - Receives Frame.io webhooks, validates, logs, publishes to Pub/Sub
-- `POST /auth/magic/send` - Generate magic link for email authentication (link printed to logs)
+- `POST /auth/magic/send` - Generate magic link for email authentication (logged as JSON)
 - `GET /auth/magic/callback` - Firebase callback, exchanges oobCode for session cookie, redirects to /dashboard
 - `GET /dashboard` - Protected endpoint, requires valid session cookie
 

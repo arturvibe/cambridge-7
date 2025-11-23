@@ -107,7 +107,7 @@ async def send_magic_link(
 
         # Log magic link as structured JSON for Cloud Logging
         log_data = {
-            "message": "MAGIC_LINK_GENERATED",
+            "message": "Magic link generated",
             "email": request.email,
             "magic_link": magic_link,
         }
