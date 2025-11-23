@@ -66,8 +66,9 @@ app = FastAPI(
 )
 
 # Session middleware required for OAuth2 state management (authlib)
-# Secret key should be set via environment variable in production
-SESSION_SECRET_KEY = os.getenv("SESSION_SECRET_KEY", "dev-secret-change-in-production")
+SESSION_SECRET_KEY = os.getenv("SESSION_SECRET_KEY")
+if not SESSION_SECRET_KEY:
+    raise ValueError("SESSION_SECRET_KEY is not set in the environment.")
 app.add_middleware(SessionMiddleware, secret_key=SESSION_SECRET_KEY)
 
 
