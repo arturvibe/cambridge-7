@@ -53,11 +53,11 @@ services:
     volumes:
       - ./firebase.json:/home/node/firebase.json:ro
     healthcheck:
-      test: ["CMD-SHELL", "wget -q --spider http://localhost:9099/ || exit 1"]
-      interval: 5s
-      timeout: 3s
+      test: ["CMD-SHELL", "netstat -an | grep -c 9099 || exit 1"]
+      interval: 10s
+      timeout: 5s
       retries: 10
-      start_period: 15s
+      start_period: 20s
 
   # Cambridge application
   cambridge:
