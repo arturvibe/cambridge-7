@@ -60,6 +60,21 @@ services:
       retries: 10
       start_period: 20s
 
+  # Google Cloud Firestore Emulator
+  firestore-emulator:
+    image: gcr.io/google.com/cloudsdktool/cloud-sdk:emulators
+    platform: linux/amd64
+    command: gcloud emulators firestore start --host-port=0.0.0.0:8086 --project=cambridge-local
+    ports:
+      - "8086:8086"
+    environment:
+      - FIRESTORE_PROJECT_ID=cambridge-local
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8086"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
   # Cambridge application
   cambridge:
     build: .
@@ -73,17 +88,22 @@ services:
       - FIREBASE_AUTH_EMULATOR_HOST=firebase-emulator:9099
       - FIREBASE_WEB_API_KEY=fake-api-key
       - BASE_URL=http://localhost:8080
+      - FIRESTORE_EMULATOR_HOST=firestore-emulator:8086
       # Do not use this secret in production.
       # For local development, this provides a consistent key.
       - SESSION_SECRET_KEY=local-dev-secret-key-please-change
       - ADOBE_CLIENT_ID=${ADOBE_CLIENT_ID:-}
       - ADOBE_CLIENT_SECRET=${ADOBE_CLIENT_SECRET:-}
+      # Test encryption key (Fernet-compatible, 32 bytes base64 URL-safe encoded) - DO NOT use in production
+      - TOKEN_ENCRYPTION_KEY=3xpo7t61pLEqmOiHEZs4qIvrPjieKmO1Pg5OSdwDRAI=
     depends_on:
       pubsub-emulator:
         condition: service_healthy
       pubsub-init:
         condition: service_completed_successfully
       firebase-emulator:
+        condition: service_healthy
+      firestore-emulator:
         condition: service_healthy
     volumes:
       - ./app:/app/app:ro

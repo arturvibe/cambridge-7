@@ -3,10 +3,11 @@ User repository interface and implementations.
 
 Defines the port (interface) for user/token persistence.
 Includes an in-memory implementation for testing and development.
-Firestore implementation can be added as a separate adapter.
+Firestore implementation is available when configured.
 """
 
 import logging
+import os
 from datetime import datetime, UTC
 from typing import Any, Protocol
 
@@ -14,6 +15,13 @@ from app.users.models import OAuthToken, User
 
 
 logger = logging.getLogger(__name__)
+
+
+def _is_firestore_configured() -> bool:
+    """Check if Firestore is configured via environment."""
+    project_id = os.getenv("GCP_PROJECT_ID") or os.getenv("GOOGLE_CLOUD_PROJECT")
+    encryption_key = os.getenv("TOKEN_ENCRYPTION_KEY")
+    return project_id is not None and encryption_key is not None
 
 
 class UserRepository(Protocol):
@@ -208,12 +216,32 @@ def get_user_repository() -> UserRepository:
     """
     Get the user repository singleton.
 
-    Returns InMemoryUserRepository by default.
-    Can be overridden via set_user_repository for testing or Firestore.
+    Returns FirestoreUserRepository if Firestore is configured
+    (GCP_PROJECT_ID and TOKEN_ENCRYPTION_KEY set).
+    Falls back to InMemoryUserRepository for testing/development.
+
+    Can be overridden via set_user_repository for testing.
     """
     global _repository
     if _repository is None:
-        _repository = InMemoryUserRepository()
+        if _is_firestore_configured():
+            try:
+                from app.infrastructure.firestore import get_firestore_client
+                from app.infrastructure.firestore_repository import (
+                    FirestoreUserRepository,
+                )
+
+                client = get_firestore_client()
+                _repository = FirestoreUserRepository(client)
+                logger.info("Using Firestore user repository")
+            except Exception as e:
+                logger.warning(
+                    f"Failed to initialize Firestore, falling back to in-memory: {e}"
+                )
+                _repository = InMemoryUserRepository()
+        else:
+            logger.info("Using in-memory user repository")
+            _repository = InMemoryUserRepository()
     return _repository
 
 
@@ -225,3 +253,13 @@ def set_user_repository(repository: UserRepository) -> None:
     """
     global _repository
     _repository = repository
+
+
+def reset_user_repository() -> None:
+    """
+    Reset the user repository singleton.
+
+    Useful for testing to ensure clean state between tests.
+    """
+    global _repository
+    _repository = None
