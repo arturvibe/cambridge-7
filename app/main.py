@@ -69,7 +69,11 @@ app = FastAPI(
 SESSION_SECRET_KEY = os.getenv("SESSION_SECRET_KEY")
 if not SESSION_SECRET_KEY:
     raise ValueError("SESSION_SECRET_KEY is not set in the environment.")
-app.add_middleware(SessionMiddleware, secret_key=SESSION_SECRET_KEY)
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=SESSION_SECRET_KEY,
+    session_cookie="cambridge_session",
+)
 
 
 # ============================================================================
