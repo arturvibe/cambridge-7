@@ -74,11 +74,16 @@ def authenticated_client(mock_user, mock_oauth_config, mock_repository):
 
 
 @pytest.fixture
-def unauthenticated_client():
-    """Test client without authentication."""
-    # Remove any auth overrides
+def unauthenticated_client(mock_oauth_config):
+    """Test client without authentication but with OAuth config mocked."""
+    # Remove auth override but keep OAuth config so provider validation passes
     app.dependency_overrides.pop(get_current_user, None)
-    return TestClient(app)
+    app.dependency_overrides[get_oauth_config] = lambda: mock_oauth_config
+
+    client = TestClient(app)
+    yield client
+
+    app.dependency_overrides.pop(get_oauth_config, None)
 
 
 # ============================================================================
