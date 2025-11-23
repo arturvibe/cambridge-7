@@ -95,10 +95,11 @@ def extract_email_from_link(magic_link: str) -> str:
 
 
 def extract_magic_link_from_logs(caplog: pytest.LogCaptureFixture) -> str:
-    """Extract magic link from captured log output."""
-    magic_link_match = re.search(r"Magic Link: (.+)", caplog.text)
+    """Extract magic link from captured JSON log output."""
+    # Look for JSON log with magic_link field
+    magic_link_match = re.search(r'"magic_link":\s*"([^"]+)"', caplog.text)
     assert magic_link_match, f"Magic link not found in logs: {caplog.text}"
-    return magic_link_match.group(1).strip()
+    return magic_link_match.group(1)
 
 
 class TestMagicLinkE2E:

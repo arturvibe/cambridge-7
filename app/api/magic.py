@@ -8,6 +8,7 @@ The adapter is "dumb" - it only translates HTTP to Python and back.
 All business logic lives in the service layer.
 """
 
+import json
 import logging
 from typing import Annotated
 
@@ -104,15 +105,13 @@ async def send_magic_link(
     try:
         magic_link = magic_link_service.generate_magic_link(request.email)
 
-        # Log the magic link for local testing
-        logger.info("=" * 80)
-        logger.info("MAGIC LINK GENERATED")
-        logger.info("=" * 80)
-        logger.info(f"Email: {request.email}")
-        logger.info(f"Magic Link: {magic_link}")
-        logger.info("=" * 80)
-        logger.info("Copy and paste this link in your browser to authenticate")
-        logger.info("=" * 80)
+        # Log magic link as structured JSON for Cloud Logging
+        log_data = {
+            "message": "MAGIC_LINK_GENERATED",
+            "email": request.email,
+            "magic_link": magic_link,
+        }
+        logger.info(json.dumps(log_data))
 
         return MagicLinkResponse(
             status="success",
