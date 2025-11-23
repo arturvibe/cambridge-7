@@ -78,6 +78,7 @@ jobs:
           tag: ${{ steps.vars.outputs.revision_tag }}
           env_vars: |
             GCP_PROJECT_ID=${{ env.PROJECT_ID }}
+            GOOGLE_CLOUD_PROJECT=${{ env.PROJECT_ID }}
             PUBSUB_TOPIC_NAME=frameio-events
             FIREBASE_WEB_API_KEY=${{ secrets.FIREBASE_WEB_API_KEY }}
             SESSION_SECRET_KEY=${{ secrets.SESSION_SECRET_KEY }}
