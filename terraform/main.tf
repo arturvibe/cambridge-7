@@ -1,17 +1,30 @@
 terraform {
-  required_version = ">= 1.0"
+  required_version = ">= 1.5"
 
   required_providers {
     google = {
       source  = "hashicorp/google"
       version = "~> 5.0"
     }
+    google-beta = {
+      source  = "hashicorp/google-beta"
+      version = "~> 5.0"
+    }
   }
 }
 
 provider "google" {
-  project = var.project_id
-  region  = var.region
+  project               = var.project_id
+  region                = var.region
+  user_project_override = true
+  billing_project       = var.project_id
+}
+
+provider "google-beta" {
+  project               = var.project_id
+  region                = var.region
+  user_project_override = true
+  billing_project       = var.project_id
 }
 
 # Enable required APIs
@@ -41,6 +54,64 @@ resource "google_project_service" "pubsub" {
   service = "pubsub.googleapis.com"
 
   disable_on_destroy = false
+}
+
+resource "google_project_service" "firebase" {
+  project = var.project_id
+  service = "firebase.googleapis.com"
+
+  disable_on_destroy = false
+}
+
+resource "google_project_service" "identity_toolkit" {
+  project = var.project_id
+  service = "identitytoolkit.googleapis.com"
+
+  disable_on_destroy = false
+}
+
+# Firebase project (links to existing GCP project)
+resource "google_firebase_project" "default" {
+  provider = google-beta
+  project  = var.project_id
+
+  depends_on = [google_project_service.firebase]
+}
+
+# Firebase Web App (provides Web API Key)
+resource "google_firebase_web_app" "cambridge" {
+  provider     = google-beta
+  project      = var.project_id
+  display_name = "Cambridge Auth"
+
+  depends_on = [google_firebase_project.default]
+}
+
+# Get Firebase Web App config (contains API key)
+data "google_firebase_web_app_config" "cambridge" {
+  provider   = google-beta
+  project    = var.project_id
+  web_app_id = google_firebase_web_app.cambridge.app_id
+}
+
+# Enable Email Link (passwordless) sign-in
+resource "google_identity_platform_config" "default" {
+  project = var.project_id
+
+  sign_in {
+    email {
+      enabled           = true
+      password_required = false
+    }
+  }
+
+  # Add Cloud Run domain to authorized domains
+  authorized_domains = [
+    "localhost",
+    var.cloud_run_domain,
+  ]
+
+  depends_on = [google_project_service.identity_toolkit]
 }
 
 # Create Artifact Registry repository for Docker images
@@ -117,7 +188,7 @@ resource "google_pubsub_subscription" "frameio_webhooks_debug_sub" {
 resource "google_service_account" "cloud_run" {
   account_id   = var.cloud_run_sa_name
   display_name = "Cloud Run Service Account"
-  description  = "Service account used by Cloud Run service to publish to Pub/Sub"
+  description  = "Service account for Cloud Run (Pub/Sub publisher, Firebase Auth)"
   project      = var.project_id
 
   depends_on = [google_project_service.iam]
@@ -128,6 +199,15 @@ resource "google_pubsub_topic_iam_member" "cloud_run_publisher" {
   project = var.project_id
   topic   = google_pubsub_topic.frameio_webhooks.name
   role    = "roles/pubsub.publisher"
+  member  = "serviceAccount:${google_service_account.cloud_run.email}"
+
+  depends_on = [google_service_account.cloud_run]
+}
+
+# IAM role for Cloud Run service account to use Firebase Auth (magic links)
+resource "google_project_iam_member" "cloud_run_firebase_auth" {
+  project = var.project_id
+  role    = "roles/firebaseauth.admin"
   member  = "serviceAccount:${google_service_account.cloud_run.email}"
 
   depends_on = [google_service_account.cloud_run]

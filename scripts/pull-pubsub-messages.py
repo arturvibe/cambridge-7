@@ -49,7 +49,7 @@ def pull_messages():
             try:
                 data = json.loads(message.data.decode("utf-8"))
                 data_str = json.dumps(data, indent=2)
-            except:
+            except Exception:
                 data_str = message.data.decode("utf-8")
 
             # Display message
@@ -58,10 +58,10 @@ def pull_messages():
             print(f"{'=' * 80}")
             print(f"Message ID: {message.message_id}")
             print(f"Publish Time: {message.publish_time}")
-            print(f"\nAttributes:")
+            print("\nAttributes:")
             for key, value in message.attributes.items():
                 print(f"  {key}: {value}")
-            print(f"\nData:")
+            print("\nData:")
             print(data_str)
             print(f"{'=' * 80}\n")
 
