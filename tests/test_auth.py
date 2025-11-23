@@ -371,6 +371,9 @@ class TestAuthConfig:
 
         config = AuthConfig()
         config.firebase_web_api_key = ""
+        config.base_url = (
+            "http://localhost:8080"  # Set BASE_URL to test API key validation
+        )
 
         with pytest.raises(ValueError, match="FIREBASE_WEB_API_KEY"):
             config.validate()
