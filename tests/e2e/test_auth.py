@@ -33,7 +33,13 @@ def e2e_client():
 
     from app.main import app
 
-    return TestClient(app)
+    # Clear any dependency overrides from other tests to use real services
+    app.dependency_overrides.clear()
+
+    yield TestClient(app)
+
+    # Restore clean state after tests
+    app.dependency_overrides.clear()
 
 
 @pytest.fixture
