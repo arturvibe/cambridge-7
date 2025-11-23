@@ -132,8 +132,6 @@ async def magic_link_callback(
         str, Query(description="One-time out-of-band code from Firebase")
     ],
     email: Annotated[str | None, Query(description="User email address")] = None,
-    mode: Annotated[str | None, Query(description="Firebase action mode")] = None,
-    continueUrl: Annotated[str | None, Query(description="Continue URL")] = None,
     config: AuthConfig = Depends(get_auth_config),
     token_service: TokenExchangeService = Depends(get_token_exchange_service),
     session_service: SessionCookieService = Depends(get_session_cookie_service),
@@ -151,8 +149,6 @@ async def magic_link_callback(
     Args:
         oobCode: The one-time code from the magic link
         email: User's email address
-        mode: Firebase action mode (e.g., 'signIn')
-        continueUrl: URL to continue to after auth
         config: Auth configuration
         token_service: Service for exchanging oobCode for ID token
         session_service: Service for creating session cookies

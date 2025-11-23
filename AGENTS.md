@@ -115,6 +115,7 @@ docker build -t cambridge . && docker run -p 8080:8080 cambridge
   - Cloud Run: google-cloud-logging with trace correlation (detected via K_SERVICE env var)
   - Local/Test: Standard Python logging to stdout
   - Structured JSON: Single log entry with `json.dumps()` (see app/core/services.py:60-78, app/api/magic.py:108-114)
+- **Environment:** No default values for required env vars - app should fail fast at startup if missing
 - **Tests:** 90%+ coverage, Test* classes, descriptive names, fixtures, test contracts not implementation
 
 **Endpoints:**

@@ -16,12 +16,20 @@ logger = logging.getLogger(__name__)
 
 
 class AuthConfig:
-    """Configuration for authentication module."""
+    """Configuration for authentication module.
+
+    Required environment variables:
+    - FIREBASE_WEB_API_KEY: Required in production (skip if using emulator)
+    - BASE_URL: Required always
+
+    Optional:
+    - FIREBASE_AUTH_EMULATOR_HOST: Set for local development with emulator
+    """
 
     def __init__(self):
-        self.firebase_web_api_key = os.getenv("FIREBASE_WEB_API_KEY", "")
-        self.base_url = os.getenv("BASE_URL", "http://localhost:8080")
-        self.firebase_auth_emulator_host = os.getenv("FIREBASE_AUTH_EMULATOR_HOST", "")
+        self.firebase_web_api_key = os.getenv("FIREBASE_WEB_API_KEY")
+        self.base_url = os.getenv("BASE_URL")
+        self.firebase_auth_emulator_host = os.getenv("FIREBASE_AUTH_EMULATOR_HOST")
         self.session_cookie_name = "session"
         # Session cookie expiration: 14 days (in seconds)
         self.session_cookie_max_age = 60 * 60 * 24 * 14
@@ -37,12 +45,12 @@ class AuthConfig:
         return bool(self.firebase_auth_emulator_host)
 
     def validate(self) -> None:
-        """Validate required configuration."""
+        """Validate required configuration. Call at startup to fail fast."""
+        if not self.base_url:
+            raise ValueError("BASE_URL environment variable is required")
         # Skip API key validation when using emulator
         if not self.using_emulator and not self.firebase_web_api_key:
             raise ValueError("FIREBASE_WEB_API_KEY environment variable is required")
-        if not self.base_url:
-            raise ValueError("BASE_URL environment variable is required")
 
 
 @lru_cache()
