@@ -524,6 +524,138 @@ Set environment variables:
 
 Add callback domain to Firebase → Authentication → Settings → Authorized domains
 
+## Adobe OAuth (Frame.io Integration)
+
+The application supports Adobe OAuth2 for connecting Frame.io accounts. Once connected, users can use their tokens to interact with the Frame.io V4 API.
+
+### Prerequisites
+
+1. **Adobe Developer Console Project**: Create a project at [Adobe Developer Console](https://developer.adobe.com/console/)
+2. **OAuth Server-to-Server or OAuth Web App credentials**:
+   - Go to your project → Add API → "Frame.io API"
+   - Choose OAuth Web App credentials
+   - Configure redirect URI: `https://your-service.run.app/oauth/adobe/callback`
+
+### Required Environment Variables
+
+```bash
+# Adobe OAuth2 credentials (from Adobe Developer Console)
+ADOBE_CLIENT_ID=your-adobe-client-id
+ADOBE_CLIENT_SECRET=your-adobe-client-secret
+
+# Base URL where the service is running
+BASE_URL=http://localhost:8080  # For local development
+# BASE_URL=https://your-service.run.app  # For production
+
+# Session secret for OAuth state (required)
+SESSION_SECRET_KEY=your-secure-random-string
+```
+
+### OAuth Scopes
+
+The application requests the following scopes:
+- `openid` - OpenID Connect
+- `email` - User email
+- `profile` - User profile
+- `frame.io.read` - Read access to Frame.io
+- `frame.io.write` - Write access to Frame.io
+
+### Authentication Flow
+
+1. **Authenticate with Magic Link**: User must first be authenticated via magic link
+2. **Connect Adobe Account**: Navigate to `/oauth/adobe/connect`
+3. **Adobe Consent**: User is redirected to Adobe to grant permissions
+4. **Token Storage**: Tokens are stored and associated with the user
+5. **Use Frame.io V4 API**: Use the stored tokens to call Frame.io V4 API
+
+### API Endpoints
+
+#### GET /oauth/adobe/connect - Start OAuth Flow
+
+Initiates the Adobe OAuth2 flow. Requires authenticated session.
+
+```bash
+# User must be authenticated first (via magic link)
+# Then navigate to this URL in browser:
+https://your-service.run.app/oauth/adobe/connect
+```
+
+#### GET /oauth/adobe/callback - OAuth Callback
+
+Handles the OAuth callback from Adobe. This endpoint:
+1. Exchanges the authorization code for tokens
+2. Stores tokens in the user repository
+3. Redirects to `/dashboard?connected=adobe`
+
+#### GET /oauth/connections - List Connected Services
+
+Returns list of connected OAuth providers for the current user.
+
+```bash
+curl http://localhost:8080/oauth/connections -b "session=<session-cookie>"
+```
+
+Response:
+```json
+{
+  "connections": ["adobe"]
+}
+```
+
+#### DELETE /oauth/adobe - Disconnect Adobe Account
+
+Removes the Adobe OAuth tokens for the current user.
+
+```bash
+curl -X DELETE http://localhost:8080/oauth/adobe -b "session=<session-cookie>"
+```
+
+### Using Frame.io V4 API
+
+After connecting Adobe, retrieve the stored token and use it with the Frame.io V4 API:
+
+```python
+# Example: Get token from repository and call Frame.io V4 API
+token = await repository.get_token(user_uid, "adobe")
+
+import httpx
+async with httpx.AsyncClient() as client:
+    response = await client.get(
+        "https://api.frame.io/v4/me",
+        headers={"Authorization": f"Bearer {token.access_token}"}
+    )
+    user_info = response.json()
+```
+
+### Local Development
+
+For local development with Docker Compose:
+
+```bash
+# Set environment variables in docker-compose.yml or .env file
+ADOBE_CLIENT_ID=your-adobe-client-id
+ADOBE_CLIENT_SECRET=your-adobe-client-secret
+
+docker-compose up
+```
+
+Then:
+1. Authenticate via magic link: `POST /auth/magic/send`
+2. Connect Adobe: Navigate to `http://localhost:8080/oauth/adobe/connect`
+
+**Note**: For local development, you need to configure your Adobe app's redirect URI to `http://localhost:8080/oauth/adobe/callback`.
+
+### Production Setup
+
+1. Set environment variables in Cloud Run:
+   - `ADOBE_CLIENT_ID`
+   - `ADOBE_CLIENT_SECRET`
+   - `BASE_URL` (your Cloud Run service URL)
+   - `SESSION_SECRET_KEY` (secure random string)
+
+2. Configure Adobe Developer Console:
+   - Add redirect URI: `https://your-service.run.app/oauth/adobe/callback`
+
 ## Security Considerations
 
 - The service is deployed with `--allow-unauthenticated` for webhook reception (required for Frame.io to send webhooks)
