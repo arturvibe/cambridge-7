@@ -50,6 +50,8 @@ services:
       - "4000:4000"   # Emulator UI
     environment:
       - FIREBASE_AUTH_EMULATOR_HOST=0.0.0.0:9099
+    volumes:
+      - ./firebase.json:/home/node/firebase.json:ro
     healthcheck:
       test: ["CMD-SHELL", "wget -q --spider http://localhost:9099/ || exit 1"]
       interval: 5s
