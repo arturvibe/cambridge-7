@@ -20,9 +20,11 @@ setup_global_logging()
 from fastapi import Depends, FastAPI, Request, status  # noqa: E402
 from fastapi.exceptions import RequestValidationError  # noqa: E402
 from fastapi.responses import JSONResponse  # noqa: E402
+from starlette.middleware.sessions import SessionMiddleware  # noqa: E402
 
 from app.api import frameio  # noqa: E402
 from app.api import magic  # noqa: E402
+from app.oauth import router as oauth_router  # noqa: E402
 from app.api.frameio import get_webhook_service_dependency  # noqa: E402
 from app.auth.dependencies import get_current_user  # noqa: E402
 from app.core.exceptions import PublisherError  # noqa: E402
@@ -62,6 +64,11 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan,
 )
+
+# Session middleware required for OAuth2 state management (authlib)
+# Secret key should be set via environment variable in production
+SESSION_SECRET_KEY = os.getenv("SESSION_SECRET_KEY", "dev-secret-change-in-production")
+app.add_middleware(SessionMiddleware, secret_key=SESSION_SECRET_KEY)
 
 
 # ============================================================================
@@ -202,6 +209,7 @@ async def dashboard(current_user: dict = Depends(get_current_user)):
 
 app.include_router(frameio.router)
 app.include_router(magic.router)
+app.include_router(oauth_router.router)
 
 
 # ============================================================================

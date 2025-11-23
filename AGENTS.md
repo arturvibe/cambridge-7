@@ -53,6 +53,13 @@ FastAPI webhook receiver for Frame.io V4 → logs payloads to GCP Cloud Run → 
 - `app/auth/config.py` - Firebase Admin SDK configuration and initialization
 - `app/auth/services.py` - Auth services (MagicLinkService, TokenExchangeService, SessionCookieService)
 - `app/auth/dependencies.py` - FastAPI dependencies for session cookie validation
+- `app/oauth/config.py` - OAuth2 provider registry (authlib configuration)
+- `app/oauth/router.py` - OAuth2 endpoints (/oauth/{provider}/connect, /oauth/{provider}/callback)
+- `app/oauth/dependencies.py` - OAuth FastAPI dependencies
+- `app/users/models.py` - User and OAuthToken domain models
+- `app/users/repository.py` - UserRepository interface + InMemoryUserRepository
+- `app/integrations/google/` - Google service integration (Photos, Drive - future)
+- `app/integrations/adobe/` - Adobe service integration (Frame.io, Creative Cloud - future)
 - `app/infrastructure/pubsub_publisher.py` - Pub/Sub implementation
 - `app/logging_config.py` - Logging configuration with Cloud Run detection
 - `tests/test_webhook.py` - Webhook endpoint tests
@@ -147,6 +154,10 @@ To run the pre-commit hooks on all files, follow these steps:
 - `POST /auth/magic/send` - Generate magic link for email authentication (logged as JSON)
 - `GET /auth/magic/callback` - Firebase callback, exchanges oobCode for session cookie, redirects to /dashboard
 - `GET /dashboard` - Protected endpoint, requires valid session cookie
+- `GET /oauth/{provider}/connect` - Start OAuth2 flow, redirects to provider (requires auth)
+- `GET /oauth/{provider}/callback` - OAuth2 callback, stores tokens, redirects to dashboard
+- `GET /oauth/connections` - List connected OAuth services for current user
+- `DELETE /oauth/{provider}` - Disconnect OAuth service
 
 **HTTP Status Codes:**
 - `200 OK` - Event successfully published, returns `{"message_id": "..."}`
@@ -279,6 +290,11 @@ curl -X POST http://localhost:8080/auth/magic/send \
 - `FIREBASE_WEB_API_KEY` - Firebase Web API key (required for magic link auth)
 - `BASE_URL` - Auto-derived from Cloud Run service URL during deployment
 - `K_SERVICE` - Auto-set by Cloud Run (triggers structured logging)
+- `SESSION_SECRET_KEY` - Secret key for session middleware (required for OAuth state)
+- `GOOGLE_CLIENT_ID` - Google OAuth2 client ID (optional, enables Google integration)
+- `GOOGLE_CLIENT_SECRET` - Google OAuth2 client secret (optional)
+- `ADOBE_CLIENT_ID` - Adobe OAuth2 client ID (optional, enables Adobe integration)
+- `ADOBE_CLIENT_SECRET` - Adobe OAuth2 client secret (optional)
 
 ## Frame.io Integration
 
@@ -306,5 +322,37 @@ curl -X POST http://localhost:8080/auth/magic/send \
 
 **Production:** Set `FIREBASE_WEB_API_KEY`, `BASE_URL`, add callback domain to Firebase authorized domains
 
+## OAuth2 Service Integrations
+
+**Architecture:** Magic Link establishes user identity (Firebase UID) → OAuth2 connects external services → Tokens stored per user/provider
+
+**Flow:**
+```
+User authenticated via Magic Link
+  → GET /oauth/google/connect (requires session cookie)
+  → Redirect to Google OAuth consent
+  → Google redirects to /oauth/google/callback
+  → Tokens stored in UserRepository (keyed by Firebase UID + provider)
+  → Redirect to /dashboard?connected=google
+```
+
+**Supported Providers:**
+- `google` - Google APIs (Photos, Drive, etc.) - configure via `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`
+- `adobe` - Adobe APIs (Frame.io, Creative Cloud) - configure via `ADOBE_CLIENT_ID`, `ADOBE_CLIENT_SECRET`
+
+**Key Components:**
+- `app/oauth/config.py` - Authlib OAuth registry, provider configuration
+- `app/oauth/router.py` - OAuth endpoints (connect, callback, list, disconnect)
+- `app/users/models.py` - User and OAuthToken domain models
+- `app/users/repository.py` - UserRepository interface (InMemory impl, Firestore future)
+- `app/integrations/{provider}/` - Provider-specific API integrations
+
+**Adding a New Provider:**
+1. Add credentials to `app/oauth/config.py` (register with authlib)
+2. Add provider to `SUPPORTED_PROVIDERS` list
+3. Create integration module at `app/integrations/{provider}/`
+
+**Token Storage:** Currently in-memory (InMemoryUserRepository). Replace with Firestore for production persistence.
+
 ---
-*Updated: 2025-11-22 | Python 3.11 | FastAPI 0.109.0 | google-cloud-pubsub 2.21.1 | firebase-admin 6.4.0*
+*Updated: 2025-11-23 | Python 3.11 | FastAPI 0.109.0 | google-cloud-pubsub 2.21.1 | firebase-admin 6.4.0 | authlib 1.3.0*
