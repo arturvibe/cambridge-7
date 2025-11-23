@@ -2,7 +2,7 @@
 
 FastAPI webhook receiver for Frame.io V4 → logs payloads to GCP Cloud Run → publishes to Pub/Sub → viewable via Cloud Logging.
 
-**Stack:** Python 3.11 • FastAPI 0.109.0 • Pydantic v2 • google-cloud-logging • google-cloud-pubsub • Docker • GCP Cloud Run • Terraform
+**Stack:** Python 3.11 • FastAPI 0.109.0 • Pydantic v2 • google-cloud-logging • google-cloud-pubsub • firebase-admin • Docker • GCP Cloud Run • Terraform
 
 **Flow:** `Frame.io → /api/v1/frameio/webhook → [Validate → Log → Publish to Pub/Sub] → Cloud Logging`
 
@@ -12,7 +12,8 @@ FastAPI webhook receiver for Frame.io V4 → logs payloads to GCP Cloud Run → 
 ```
 ┌─────────────────────────────────────────┐
 │ Driving Adapters (app/api/)             │
-│ - frameio.py: HTTP endpoint (dumb)      │
+│ - frameio.py: Webhook endpoint (dumb)   │
+│ - magic.py: Auth endpoints (dumb)       │
 └─────────────────┬───────────────────────┘
                   ↓
 ┌─────────────────────────────────────────┐
@@ -21,6 +22,11 @@ FastAPI webhook receiver for Frame.io V4 → logs payloads to GCP Cloud Run → 
 │ - services.py: Business logic (smart)   │
 │ - ports.py: EventPublisher interface    │
 │ - exceptions.py: Domain exceptions      │
+├─────────────────────────────────────────┤
+│ Auth Module (app/auth/)                 │
+│ - config.py: Firebase configuration     │
+│ - services.py: Auth business logic      │
+│ - dependencies.py: Session validation   │
 └─────────────────┬───────────────────────┘
                   ↓
 ┌─────────────────────────────────────────┐
@@ -37,15 +43,27 @@ FastAPI webhook receiver for Frame.io V4 → logs payloads to GCP Cloud Run → 
 ## Structure
 
 **Core files:**
-- `app/main.py` - FastAPI app wiring, dependency injection, centralized exception handlers
-- `app/api/frameio.py` - HTTP endpoint (dumb adapter, delegates to service)
+- `app/main.py` - FastAPI app wiring, dependency injection, centralized exception handlers, /dashboard endpoint
+- `app/api/frameio.py` - Frame.io webhook endpoint (dumb adapter, delegates to service)
+- `app/api/magic.py` - Magic link auth endpoints (dumb adapter, /auth/magic/send, /auth/magic/callback)
 - `app/core/domain.py` - FrameIOEvent domain model (Pydantic v2)
 - `app/core/services.py` - Business logic (logging, publishing, validation)
 - `app/core/ports.py` - EventPublisher port (interface)
 - `app/core/exceptions.py` - Domain exceptions (PublisherError, InvalidWebhookError)
+- `app/auth/config.py` - Firebase Admin SDK configuration and initialization
+- `app/auth/services.py` - Auth services (MagicLinkService, TokenExchangeService, SessionCookieService)
+- `app/auth/dependencies.py` - FastAPI dependencies for session cookie validation
+- `app/oauth/config.py` - OAuth2 provider registry (authlib configuration)
+- `app/oauth/router.py` - OAuth2 endpoints (/oauth/{provider}/connect, /oauth/{provider}/callback)
+- `app/oauth/dependencies.py` - OAuth FastAPI dependencies
+- `app/users/models.py` - User and OAuthToken domain models
+- `app/users/repository.py` - UserRepository interface + InMemoryUserRepository
+- `app/integrations/google/` - Google service integration (Photos, Drive - future)
+- `app/integrations/adobe/` - Adobe service integration (Frame.io, Creative Cloud - future)
 - `app/infrastructure/pubsub_publisher.py` - Pub/Sub implementation
 - `app/logging_config.py` - Logging configuration with Cloud Run detection
 - `tests/test_webhook.py` - Webhook endpoint tests
+- `tests/test_auth.py` - Magic link authentication tests
 - `tests/test_pubsub_integration.py` - Pub/Sub integration tests
 - `tests/test_pubsub_publisher.py` - Publisher unit tests (90%+ coverage)
 - `tests/test_health.py` - Health endpoint tests
@@ -66,14 +84,92 @@ pre-commit install  # Install git hooks for auto-formatting
 # Run locally with Pub/Sub emulator (recommended)
 docker-compose up  # Starts emulator, sets up topics, and runs app at http://localhost:8080
 
-# Test
-pytest --cov=app --cov-report=term-missing  # Must maintain 90%+ coverage
+## Testing
 
-# Docker
-docker build -t cambridge . && docker run -p 8080:8080 cambridge
+This project has two test suites: unit tests and end-to-end (E2E) tests.
+
+### Unit Tests
+
+Unit tests mock external services and do not require any running dependencies. They can be run directly after installing dependencies:
+
+```bash
+# Activate virtual environment
+source .venv/bin/activate
+
+# Run all unit tests (ignores E2E tests)
+pytest --cov=app --cov-report=term-missing --ignore=tests/e2e/
 ```
 
-**Pre-commit hooks:** Auto-format Python (black) and Terraform files before commit
+### End-to-End (E2E) Tests
+
+E2E tests run against a real Firebase Auth emulator and require Docker. They are designed to be run from your local machine, connecting to the emulator service managed by Docker Compose.
+
+**1. Start the Firebase Emulator:**
+
+First, start the Firebase emulator in the background.
+
+```bash
+docker-compose up -d firebase-emulator
+```
+
+Wait a few moments for it to become healthy. You can check its status with `docker-compose ps`.
+
+**2. Run the E2E Tests:**
+
+Once the emulator is running, run the E2E tests with the required environment variables. These variables tell the tests how to connect to the emulator.
+
+```bash
+source .venv/bin/activate
+
+export FIREBASE_AUTH_EMULATOR_HOST="localhost:9099"
+export GOOGLE_CLOUD_PROJECT="cambridge-local"
+export GCP_PROJECT_ID="cambridge-local"
+export FIREBASE_WEB_API_KEY="fake-api-key"
+export BASE_URL="http://localhost:8080"
+export SESSION_SECRET_KEY="test-secret"
+
+pytest tests/e2e/
+```
+
+**3. Stop the Emulator:**
+
+When you are finished running the tests, stop the emulator.
+
+```bash
+docker-compose down
+```
+
+## Docker
+
+Build and run the production container:
+```bash
+docker build -t cambridge . && docker run -p 8080:8080 cambridge
+```
+```
+
+### Pre-commit Hooks
+
+To run the pre-commit hooks on all files, follow these steps:
+
+1.  **Create a virtual environment:**
+    ```bash
+    python3 -m venv .venv
+    ```
+
+2.  **Activate the virtual environment:**
+    ```bash
+    source .venv/bin/activate
+    ```
+
+3.  **Install dependencies:**
+    ```bash
+    pip install -r requirements-dev.txt
+    ```
+
+4.  **Run pre-commit:**
+    ```bash
+    pre-commit run --all-files
+    ```
 
 **CI/CD:**
 - test (PRs only) → runs pytest with coverage
@@ -103,13 +199,21 @@ docker build -t cambridge . && docker run -p 8080:8080 cambridge
   - Config: `app/logging_config.py` with `setup_global_logging()`
   - Cloud Run: google-cloud-logging with trace correlation (detected via K_SERVICE env var)
   - Local/Test: Standard Python logging to stdout
-  - Structured JSON: Single log entry per webhook (see app/core/services.py:60-78)
+  - Structured JSON: Single log entry with `json.dumps()` (see app/core/services.py:60-78, app/api/magic.py:108-114)
+- **Environment:** No default values for required env vars - app should fail fast at startup if missing
 - **Tests:** 90%+ coverage, Test* classes, descriptive names, fixtures, test contracts not implementation
 
 **Endpoints:**
 - `GET /` - Health check with service info
 - `GET /health` - Simple health check
 - `POST /api/v1/frameio/webhook` - Receives Frame.io webhooks, validates, logs, publishes to Pub/Sub
+- `POST /auth/magic/send` - Generate magic link for email authentication (logged as JSON)
+- `GET /auth/magic/callback` - Firebase callback, exchanges oobCode for session cookie, redirects to /dashboard
+- `GET /dashboard` - Protected endpoint, requires valid session cookie
+- `GET /oauth/{provider}/connect` - Start OAuth2 flow, redirects to provider (requires auth)
+- `GET /oauth/{provider}/callback` - OAuth2 callback, stores tokens, redirects to dashboard
+- `GET /oauth/connections` - List connected OAuth services for current user
+- `DELETE /oauth/{provider}` - Disconnect OAuth service
 
 **HTTP Status Codes:**
 - `200 OK` - Event successfully published, returns `{"message_id": "..."}`
@@ -158,7 +262,7 @@ docker build -t cambridge . && docker run -p 8080:8080 cambridge
 1. Run tests: `pytest --cov=app --cov-report=term-missing`
 2. For features: Add to app/main.py → Add tests → Update README → Commit (`feat:`)
 3. For bugs: Write failing test → Fix → Verify → Commit (`fix:`)
-4. Before commit: `black app/ tests/` + verify commit format
+4. Before commit: You MUST run `pre-commit run --all-files` and fix any errors.
 
 **Common tasks:**
 - Add webhook field: Extract in app/main.py → Log + Publish to Pub/Sub → Add tests
@@ -185,7 +289,7 @@ docker build -t cambridge . && docker run -p 8080:8080 cambridge
 # Development
 python app/main.py                              # Run locally
 pytest --cov=app --cov-report=term-missing      # Test
-black app/ tests/                               # Format
+pre-commit run --all-files                      # Format & Lint
 
 # Docker
 docker build -t cambridge . && docker run -p 8080:8080 cambridge
@@ -196,7 +300,8 @@ curl -X POST http://localhost:8080/api/v1/frameio/webhook \
   -d '{"type": "file.created", "resource": {"id": "test-123", "type": "file"}, "account": {"id": "acc-123"}}'
 
 # GCP logs
-gcloud logging tail "resource.type=cloud_run_revision AND resource.labels.service_name=cambridge"
+# Note: This command requires a recent version of the gcloud CLI.
+gcloud beta run services logs tail cambridge --project cambridge-7 --region europe-west1
 
 # View deployed image in Artifact Registry
 gcloud artifacts docker tags list europe-west1-docker.pkg.dev/$PROJECT_ID/cambridge-repo/cambridge
@@ -213,6 +318,12 @@ gcloud pubsub topics publish frameio-events --message='{"test": "message"}'
 cd terraform && terraform init && terraform apply
 terraform output -raw github_actions_service_account_key | base64 -d > key.json
 terraform output pubsub_topic_name          # View Pub/Sub topic name
+
+# Magic Link Authentication (with docker-compose)
+curl -X POST http://localhost:8080/auth/magic/send \
+  -H "Content-Type: application/json" \
+  -d '{"email": "test@example.com"}'
+# Copy magic link from logs, paste in browser → /dashboard
 ```
 
 ## Deployment
@@ -231,8 +342,16 @@ terraform output pubsub_topic_name          # View Pub/Sub topic name
 **Environment Variables (Cloud Run):**
 - `GCP_PROJECT_ID` - GCP project ID (required)
 - `PUBSUB_TOPIC_NAME` - Pub/Sub topic name (required)
-- `PUBSUB_EMULATOR_HOST` - Pub/Sub emulator host (local dev only, e.g., `localhost:8085`)
+- `PUBSUB_EMULATOR_HOST` - Pub/Sub emulator host (local dev only)
+- `FIREBASE_AUTH_EMULATOR_HOST` - Firebase Auth emulator host (local dev only)
+- `FIREBASE_WEB_API_KEY` - Firebase Web API key (required for magic link auth)
+- `BASE_URL` - Auto-derived from Cloud Run service URL during deployment
 - `K_SERVICE` - Auto-set by Cloud Run (triggers structured logging)
+- `SESSION_SECRET_KEY` - Secret key for session middleware (required for OAuth state)
+- `GOOGLE_CLIENT_ID` - Google OAuth2 client ID (optional, enables Google integration)
+- `GOOGLE_CLIENT_SECRET` - Google OAuth2 client secret (optional)
+- `ADOBE_CLIENT_ID` - Adobe OAuth2 client ID (optional, enables Adobe integration)
+- `ADOBE_CLIENT_SECRET` - Adobe OAuth2 client secret (optional)
 
 ## Frame.io Integration
 
@@ -252,5 +371,45 @@ terraform output pubsub_topic_name          # View Pub/Sub topic name
 - Pub/Sub emulator not working → Ensure PUBSUB_EMULATOR_HOST is set, topic/subscription created (run setup script)
 - Messages not in Pub/Sub → Check application logs for publishing errors, verify topic exists
 
+## Magic Link Authentication
+
+**Flow:** `POST /auth/magic/send → Firebase generates link → User clicks → /auth/magic/callback → Session cookie → /dashboard`
+
+**Local Development:** `docker-compose up` starts Firebase Auth Emulator (port 9099, UI at 4000)
+
+**Production:** Set `FIREBASE_WEB_API_KEY`, `BASE_URL`, add callback domain to Firebase authorized domains
+
+## OAuth2 Service Integrations
+
+**Architecture:** Magic Link establishes user identity (Firebase UID) → OAuth2 connects external services → Tokens stored per user/provider
+
+**Flow:**
+```
+User authenticated via Magic Link
+  → GET /oauth/google/connect (requires session cookie)
+  → Redirect to Google OAuth consent
+  → Google redirects to /oauth/google/callback
+  → Tokens stored in UserRepository (keyed by Firebase UID + provider)
+  → Redirect to /dashboard?connected=google
+```
+
+**Supported Providers:**
+- `google` - Google APIs (Photos, Drive, etc.) - configure via `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`
+- `adobe` - Adobe APIs (Frame.io, Creative Cloud) - configure via `ADOBE_CLIENT_ID`, `ADOBE_CLIENT_SECRET`
+
+**Key Components:**
+- `app/oauth/config.py` - Authlib OAuth registry, provider configuration
+- `app/oauth/router.py` - OAuth endpoints (connect, callback, list, disconnect)
+- `app/users/models.py` - User and OAuthToken domain models
+- `app/users/repository.py` - UserRepository interface (InMemory impl, Firestore future)
+- `app/integrations/{provider}/` - Provider-specific API integrations
+
+**Adding a New Provider:**
+1. Add credentials to `app/oauth/config.py` (register with authlib)
+2. Add provider to `SUPPORTED_PROVIDERS` list
+3. Create integration module at `app/integrations/{provider}/`
+
+**Token Storage:** Currently in-memory (InMemoryUserRepository). Replace with Firestore for production persistence.
+
 ---
-*Updated: 2025-11-16 | Python 3.11 | FastAPI 0.109.0 | google-cloud-pubsub 2.21.1*
+*Updated: 2025-11-23 | Python 3.11 | FastAPI 0.109.0 | google-cloud-pubsub 2.21.1 | firebase-admin 6.4.0 | authlib 1.3.0*

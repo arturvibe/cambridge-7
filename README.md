@@ -100,6 +100,10 @@ See [terraform/README.md](terraform/README.md) for detailed Terraform documentat
    - Add the following secrets:
      - `GCP_PROJECT_ID`: Your GCP project ID
      - `GCP_SA_KEY`: Contents of the `key.json` file (entire JSON)
+     - `FIREBASE_WEB_API_KEY`: Firebase Web API key (for magic link auth)
+     - `SESSION_SECRET_KEY`: Secure random string for session encryption
+     - `ADOBE_CLIENT_ID`: Adobe OAuth client ID (for Frame.io integration)
+     - `ADOBE_CLIENT_SECRET`: Adobe OAuth client secret
 
 2. **Configure the workflow (if needed):**
    - Edit `.github/workflows/deploy.yml` if you want to change:
@@ -298,7 +302,7 @@ See `.github/workflows/test.yml` for CI configuration and `tests/README.md` for 
 
 **Option 1: Run with Docker Compose (Recommended)**
 
-Runs the app with Pub/Sub emulator for full local testing:
+Runs the app with Pub/Sub and Firebase Auth emulators for full local testing:
 
 ```bash
 docker-compose up
@@ -306,8 +310,17 @@ docker-compose up
 
 This starts:
 - Pub/Sub emulator on port 8085
+- Firebase Auth emulator on port 9099 (UI at http://localhost:4000)
 - Cambridge app on `http://localhost:8080`
 - Auto-creates topic (`frameio-events`) and debug subscription (`frameio-events-debug-sub`)
+
+**Test magic link authentication:**
+```bash
+curl -X POST http://localhost:8080/auth/magic/send \
+  -H "Content-Type: application/json" \
+  -d '{"email": "test@example.com"}'
+# Copy magic link from logs, paste in browser → redirects to /dashboard
+```
 
 **Test the webhook:**
 ```bash
@@ -417,6 +430,288 @@ gcloud alpha monitoring policies create \
     --condition-threshold-value=0.05 \
     --condition-threshold-duration=60s
 ```
+
+## Magic Link Authentication
+
+The application includes a self-contained magic link authentication system using Firebase. This allows developers to authenticate entirely through the backend without any frontend code.
+
+### Prerequisites
+
+1. **Firebase Project**: Create a Firebase project at [Firebase Console](https://console.firebase.google.com/)
+2. **Enable Email Link Sign-In**:
+   - Go to Firebase Console → Authentication → Sign-in method
+   - Enable "Email/Password" provider
+   - Enable "Email link (passwordless sign-in)"
+3. **Firebase Service Account**: Ensure your GCP project has the Firebase Admin SDK service account configured
+4. **Authorized Domains**: Add your callback domain to Firebase → Authentication → Settings → Authorized domains
+
+### Required Environment Variables
+
+```bash
+# Firebase Web API Key (from Firebase Console → Project Settings → General)
+FIREBASE_WEB_API_KEY=your-firebase-web-api-key
+
+# Base URL where the service is running
+BASE_URL=http://localhost:8080  # For local development
+# BASE_URL=https://your-service.run.app  # For production
+```
+
+### Authentication Flow
+
+1. **Generate Magic Link**: Call `POST /auth/magic/send` with your email
+2. **Copy Link from Logs**: The magic link appears in server logs
+3. **Click Link**: Paste the link in your browser
+4. **Automatic Redirect**: You're redirected to `/dashboard` with a session cookie
+
+### API Endpoints
+
+#### POST /auth/magic/send - Generate Magic Link
+
+Request a magic link for email authentication.
+
+```bash
+curl -X POST http://localhost:8080/auth/magic/send \
+  -H "Content-Type: application/json" \
+  -d '{"email": "your-email@example.com"}'
+```
+
+Response:
+```json
+{
+  "status": "success",
+  "message": "Magic link generated - check server logs"
+}
+```
+
+**Important**: Check the server logs/console for the actual magic link URL.
+
+#### GET /auth/magic/callback - Magic Link Callback
+
+This endpoint is called automatically when the user clicks the magic link. It:
+1. Exchanges the Firebase oobCode for an ID token
+2. Creates a session cookie
+3. Redirects to `/dashboard`
+
+#### GET /dashboard - Protected Resource
+
+A protected endpoint that requires authentication.
+
+```bash
+# Without authentication:
+curl http://localhost:8080/dashboard
+# Returns: 401 Unauthorized
+
+# With session cookie (after magic link authentication):
+curl http://localhost:8080/dashboard -b "session=<session-cookie>"
+# Returns: {"status": "success", "message": "Welcome, you are authenticated!", ...}
+```
+
+### Local Development (Docker Compose)
+
+Docker Compose includes Firebase Auth Emulator - no configuration needed:
+
+```bash
+docker-compose up
+curl -X POST http://localhost:8080/auth/magic/send \
+  -H "Content-Type: application/json" \
+  -d '{"email": "test@example.com"}'
+# Copy magic link from logs, paste in browser → /dashboard
+```
+
+Firebase Emulator UI available at http://localhost:4000
+
+### Production Setup
+
+Set environment variables:
+- `FIREBASE_WEB_API_KEY` - From Firebase Console
+- `BASE_URL` - Your service URL (e.g., `https://your-service.run.app`)
+
+Add callback domain to Firebase → Authentication → Settings → Authorized domains
+
+## Adobe OAuth (Frame.io Integration)
+
+The application supports Adobe OAuth2 for connecting Frame.io accounts. Once connected, users can use their tokens to interact with the Frame.io V4 API.
+
+### Prerequisites
+
+1. **Adobe Developer Console Project**: Create a project at [Adobe Developer Console](https://developer.adobe.com/console/)
+2. **OAuth Server-to-Server or OAuth Web App credentials**:
+   - Go to your project → Add API → "Frame.io API"
+   - Choose OAuth Web App credentials
+   - Configure redirect URI: `https://your-service.run.app/oauth/adobe/callback`
+
+### Required Environment Variables
+
+```bash
+# Adobe OAuth2 credentials (from Adobe Developer Console)
+ADOBE_CLIENT_ID=your-adobe-client-id
+ADOBE_CLIENT_SECRET=your-adobe-client-secret
+
+# Base URL where the service is running
+BASE_URL=http://localhost:8080  # For local development
+# BASE_URL=https://your-service.run.app  # For production
+
+# Session secret for OAuth state (required)
+SESSION_SECRET_KEY=your-secure-random-string
+```
+
+### OAuth Scopes
+
+The application requests the following Adobe IMS scopes:
+- `openid` - OpenID Connect (required)
+- `offline_access` - Enables refresh tokens for long-lived access
+
+**Note**: Frame.io API access is granted based on the Frame.io API being added to your Adobe Developer Console project, not via explicit OAuth scopes. The default scopes from Adobe IMS are sufficient; actual Frame.io permissions are determined by roles and permissions within Frame.io itself.
+
+### Authentication Flow
+
+1. **Authenticate with Magic Link**: User must first be authenticated via magic link
+2. **Connect Adobe Account**: Navigate to `/oauth/adobe/connect`
+3. **Adobe Consent**: User is redirected to Adobe to grant permissions
+4. **Token Storage**: Tokens are stored and associated with the user
+5. **Use Frame.io V4 API**: Use the stored tokens to call Frame.io V4 API
+
+### API Endpoints
+
+#### GET /oauth/adobe/connect - Start OAuth Flow
+
+Initiates the Adobe OAuth2 flow. Requires authenticated session.
+
+```bash
+# User must be authenticated first (via magic link)
+# Then navigate to this URL in browser:
+https://your-service.run.app/oauth/adobe/connect
+```
+
+#### GET /oauth/adobe/callback - OAuth Callback
+
+Handles the OAuth callback from Adobe. This endpoint:
+1. Exchanges the authorization code for tokens
+2. Stores tokens in the user repository
+3. Redirects to `/dashboard?connected=adobe`
+
+#### GET /oauth/connections - List Connected Services
+
+Returns list of connected OAuth providers for the current user.
+
+```bash
+curl http://localhost:8080/oauth/connections -b "session=<session-cookie>"
+```
+
+Response:
+```json
+{
+  "connections": ["adobe"]
+}
+```
+
+#### DELETE /oauth/adobe - Disconnect Adobe Account
+
+Removes the Adobe OAuth tokens for the current user.
+
+```bash
+curl -X DELETE http://localhost:8080/oauth/adobe -b "session=<session-cookie>"
+```
+
+### Using Frame.io V4 API
+
+After connecting Adobe, retrieve the stored token and use it with the Frame.io V4 API:
+
+```python
+# Example: Get token from repository and call Frame.io V4 API
+token = await repository.get_token(user_uid, "adobe")
+
+import httpx
+async with httpx.AsyncClient() as client:
+    response = await client.get(
+        "https://api.frame.io/v4/me",
+        headers={"Authorization": f"Bearer {token.access_token}"}
+    )
+    user_info = response.json()
+```
+
+### Local Development
+
+For local development with Docker Compose:
+
+```bash
+# Set environment variables in docker-compose.yml or .env file
+ADOBE_CLIENT_ID=your-adobe-client-id
+ADOBE_CLIENT_SECRET=your-adobe-client-secret
+
+docker-compose up
+```
+
+Then:
+1. Authenticate via magic link: `POST /auth/magic/send`
+2. Connect Adobe: Navigate to `http://localhost:8080/oauth/adobe/connect`
+
+**Note**: For local development, you need to configure your Adobe app's redirect URI to `http://localhost:8080/oauth/adobe/callback`.
+
+### Production Setup
+
+1. Set environment variables in Cloud Run:
+   - `ADOBE_CLIENT_ID`
+   - `ADOBE_CLIENT_SECRET`
+   - `BASE_URL` (your Cloud Run service URL)
+   - `SESSION_SECRET_KEY` (secure random string)
+
+2. Configure Adobe Developer Console:
+   - Add redirect URI: `https://your-service.run.app/oauth/adobe/callback`
+
+### Testing the OAuth Flow
+
+#### Step 1: Authenticate with Magic Link
+
+```bash
+# Request magic link
+curl -X POST http://localhost:8080/auth/magic/send \
+  -H "Content-Type: application/json" \
+  -d '{"email": "your-email@example.com"}'
+
+# Copy the magic link from server logs and open in browser
+# This sets a session cookie and redirects to /dashboard
+```
+
+#### Step 2: Connect Adobe Account
+
+Open in browser (must have session cookie from Step 1):
+```
+http://localhost:8080/oauth/adobe/connect
+```
+
+This redirects to Adobe login. After granting permissions, you're redirected back to `/dashboard?connected=adobe`.
+
+#### Step 3: Verify Connection
+
+```bash
+# List connected services (use cookie from browser or save it)
+curl http://localhost:8080/oauth/connections \
+  -b "session=<your-session-cookie>"
+
+# Expected response:
+# {"connections": ["adobe"]}
+```
+
+#### Step 4: Test with Frame.io V4 API
+
+Once connected, you can retrieve the token and use it with Frame.io V4 API:
+
+```bash
+# The token is stored in the user repository
+# Use it to call Frame.io V4 API directly:
+curl https://api.frame.io/v4/me \
+  -H "Authorization: Bearer <access-token-from-repository>"
+```
+
+#### Troubleshooting
+
+| Issue | Solution |
+|-------|----------|
+| "Adobe account not connected" | Complete magic link auth first, then visit `/oauth/adobe/connect` |
+| OAuth redirect fails | Verify redirect URI in Adobe Developer Console matches exactly |
+| 401 on Frame.io API | Token may be expired; reconnect Adobe account |
+| Session cookie not set | Ensure `SESSION_SECRET_KEY` is configured |
 
 ## Security Considerations
 

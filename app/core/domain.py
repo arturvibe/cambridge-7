@@ -75,3 +75,20 @@ class FrameIOEvent(BaseModel):
             "project": {"id": self.project_id},
             "user": {"id": self.user_id},
         }
+
+
+class FrameioFile(BaseModel):
+    """
+    Pydantic model for a Frame.io file.
+
+    Represents the file information returned from the Frame.io API.
+    """
+
+    name: str = Field(..., description="The name of the file.")
+    url: str = Field(
+        ...,
+        validation_alias=AliasPath("media_links", "original", "download_url"),
+        description="The download URL for the original file.",
+    )
+
+    model_config = ConfigDict(populate_by_name=True)

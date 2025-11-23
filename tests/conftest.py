@@ -9,7 +9,14 @@ import pytest
 from fastapi.testclient import TestClient
 
 # Mock Pub/Sub before importing app
-with patch.dict(os.environ, {"GCP_PROJECT_ID": "test-project"}):
+with patch.dict(
+    os.environ,
+    {
+        "GCP_PROJECT_ID": "test-project",
+        "SESSION_SECRET_KEY": "test-secret",
+        "BASE_URL": "http://testserver",
+    },
+):
     from app.main import app, get_event_publisher
 
 # Create a single mock publisher for all tests
