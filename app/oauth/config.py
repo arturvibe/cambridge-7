@@ -109,10 +109,8 @@ def create_oauth_registry(config: OAuthConfig | None = None) -> OAuth:
         logger.warning("Google OAuth not configured (missing credentials)")
 
     # Register Adobe OAuth2 for Frame.io
-    # Uses offline_access for refresh tokens. Frame.io API access is controlled
-    # by adding Frame.io API to the Adobe Developer Console project.
-    # Note: We skip 'openid' scope to avoid ID token parsing issues with Adobe IMS
-    # (Adobe IMS doesn't provide jwks_uri in standard OAuth metadata).
+    # Frame.io API access is controlled by adding Frame.io API to the
+    # Adobe Developer Console project.
     if config.is_provider_configured("adobe"):
         oauth.register(
             name="adobe",
@@ -120,8 +118,9 @@ def create_oauth_registry(config: OAuthConfig | None = None) -> OAuth:
             client_secret=config.adobe_client_secret,
             authorize_url="https://ims-na1.adobelogin.com/ims/authorize/v2",
             access_token_url="https://ims-na1.adobelogin.com/ims/token/v3",
+            jwks_uri="https://ims-na1.adobelogin.com/ims/keys",
             client_kwargs={
-                "scope": "offline_access",
+                "scope": "openid offline_access",
             },
         )
         logger.info("Registered Adobe OAuth provider")
