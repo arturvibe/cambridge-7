@@ -74,9 +74,15 @@ def initialize_firebase() -> None:
     if emulator_host:
         logger.info(f"Using Firebase Auth Emulator at {emulator_host}")
 
+    # Get project ID from environment
+    project_id = os.getenv("GOOGLE_CLOUD_PROJECT") or os.getenv("GCP_PROJECT_ID")
+
     try:
-        firebase_admin.initialize_app()
-        logger.info("Firebase Admin SDK initialized successfully")
+        options = {"projectId": project_id} if project_id else None
+        firebase_admin.initialize_app(options=options)
+        logger.info(
+            f"Firebase Admin SDK initialized successfully (project: {project_id})"
+        )
     except Exception as e:
         logger.error(f"Failed to initialize Firebase Admin SDK: {e}")
         raise

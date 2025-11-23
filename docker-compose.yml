@@ -76,6 +76,8 @@ services:
       # Do not use this secret in production.
       # For local development, this provides a consistent key.
       - SESSION_SECRET_KEY=local-dev-secret-key-please-change
+      - ADOBE_CLIENT_ID=${ADOBE_CLIENT_ID:-}
+      - ADOBE_CLIENT_SECRET=${ADOBE_CLIENT_SECRET:-}
     depends_on:
       pubsub-emulator:
         condition: service_healthy
