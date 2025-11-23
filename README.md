@@ -658,6 +658,60 @@ Then:
 2. Configure Adobe Developer Console:
    - Add redirect URI: `https://your-service.run.app/oauth/adobe/callback`
 
+### Testing the OAuth Flow
+
+#### Step 1: Authenticate with Magic Link
+
+```bash
+# Request magic link
+curl -X POST http://localhost:8080/auth/magic/send \
+  -H "Content-Type: application/json" \
+  -d '{"email": "your-email@example.com"}'
+
+# Copy the magic link from server logs and open in browser
+# This sets a session cookie and redirects to /dashboard
+```
+
+#### Step 2: Connect Adobe Account
+
+Open in browser (must have session cookie from Step 1):
+```
+http://localhost:8080/oauth/adobe/connect
+```
+
+This redirects to Adobe login. After granting permissions, you're redirected back to `/dashboard?connected=adobe`.
+
+#### Step 3: Verify Connection
+
+```bash
+# List connected services (use cookie from browser or save it)
+curl http://localhost:8080/oauth/connections \
+  -b "session=<your-session-cookie>"
+
+# Expected response:
+# {"connections": ["adobe"]}
+```
+
+#### Step 4: Test with Frame.io V4 API
+
+Once connected, you can retrieve the token and use it with Frame.io V4 API:
+
+```bash
+# The token is stored in the user repository
+# Use it to call Frame.io V4 API directly:
+curl https://api.frame.io/v4/me \
+  -H "Authorization: Bearer <access-token-from-repository>"
+```
+
+#### Troubleshooting
+
+| Issue | Solution |
+|-------|----------|
+| "Adobe account not connected" | Complete magic link auth first, then visit `/oauth/adobe/connect` |
+| OAuth redirect fails | Verify redirect URI in Adobe Developer Console matches exactly |
+| 401 on Frame.io API | Token may be expired; reconnect Adobe account |
+| Session cookie not set | Ensure `SESSION_SECRET_KEY` is configured |
+
 ## Security Considerations
 
 - The service is deployed with `--allow-unauthenticated` for webhook reception (required for Frame.io to send webhooks)
