@@ -11,7 +11,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from app.users.models import OAuthToken, User
+from app.users.models import User
 
 
 # Generate a valid Fernet key for testing

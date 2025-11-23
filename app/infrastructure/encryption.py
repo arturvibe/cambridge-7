@@ -5,7 +5,6 @@ Uses Fernet symmetric encryption from the cryptography library.
 Tokens are encrypted before storing in Firestore and decrypted when retrieved.
 """
 
-import base64
 import logging
 import os
 from typing import Optional
