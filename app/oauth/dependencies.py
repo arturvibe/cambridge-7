@@ -39,12 +39,16 @@ def get_repository() -> UserRepository:
     return get_user_repository()
 
 
-async def validate_provider(provider: str) -> str:
+async def validate_provider(
+    provider: str,
+    config: OAuthConfig = Depends(get_oauth_config),
+) -> str:
     """
     Validate that the provider is supported and configured.
 
     Args:
         provider: OAuth provider name from path
+        config: OAuth configuration (injected)
 
     Returns:
         Validated provider name
@@ -58,7 +62,6 @@ async def validate_provider(provider: str) -> str:
             detail=f"Unknown provider: {provider}. Supported: {SUPPORTED_PROVIDERS}",
         )
 
-    config = get_oauth_config()
     if not config.is_provider_configured(provider):
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
