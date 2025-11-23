@@ -298,7 +298,7 @@ See `.github/workflows/test.yml` for CI configuration and `tests/README.md` for 
 
 **Option 1: Run with Docker Compose (Recommended)**
 
-Runs the app with Pub/Sub emulator for full local testing:
+Runs the app with Pub/Sub and Firebase Auth emulators for full local testing:
 
 ```bash
 docker-compose up
@@ -306,8 +306,17 @@ docker-compose up
 
 This starts:
 - Pub/Sub emulator on port 8085
+- Firebase Auth emulator on port 9099 (UI at http://localhost:4000)
 - Cambridge app on `http://localhost:8080`
 - Auto-creates topic (`frameio-events`) and debug subscription (`frameio-events-debug-sub`)
+
+**Test magic link authentication:**
+```bash
+curl -X POST http://localhost:8080/auth/magic/send \
+  -H "Content-Type: application/json" \
+  -d '{"email": "test@example.com"}'
+# Copy magic link from logs, paste in browser → redirects to /dashboard
+```
 
 **Test the webhook:**
 ```bash
