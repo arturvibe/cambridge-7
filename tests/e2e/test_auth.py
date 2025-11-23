@@ -168,7 +168,10 @@ class TestMagicLinkE2E:
         )
 
         assert response.status_code == 401
-        assert "error" in response.json()["detail"].lower() or "failed" in response.json()["detail"].lower()
+        assert (
+            "error" in response.json()["detail"].lower()
+            or "failed" in response.json()["detail"].lower()
+        )
 
     def test_dashboard_without_session_returns_401(self, e2e_client):
         """Test that dashboard requires authentication."""
@@ -185,7 +188,9 @@ class TestMagicLinkE2E:
 
         assert response.status_code == 401
 
-    def test_magic_link_includes_email_in_callback_url(self, e2e_client, test_email, capsys):
+    def test_magic_link_includes_email_in_callback_url(
+        self, e2e_client, test_email, capsys
+    ):
         """Test that generated magic link includes email for callback."""
         response = e2e_client.post(
             "/auth/magic/send",
@@ -244,7 +249,6 @@ class TestMagicLinkE2EEdgeCases:
     def test_email_case_insensitivity(self, e2e_client, capsys):
         """Test that email matching is handled correctly."""
         email_lower = "testcase@example.com"
-        email_upper = "TESTCASE@example.com"
 
         # Generate link with lowercase email
         response = e2e_client.post(

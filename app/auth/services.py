@@ -47,7 +47,9 @@ class MagicLinkService:
             # Include email in callback URL since Firebase doesn't add it
             from urllib.parse import urlencode
 
-            callback_with_email = f"{self.config.callback_url}?{urlencode({'email': email})}"
+            callback_with_email = (
+                f"{self.config.callback_url}?{urlencode({'email': email})}"
+            )
 
             # Configure the action code settings
             action_code_settings = firebase_auth.ActionCodeSettings(
@@ -84,10 +86,15 @@ class TokenExchangeService:
         if self.config.using_emulator:
             # Use emulator endpoint
             emulator_host = self.config.firebase_auth_emulator_host
-            return f"http://{emulator_host}/identitytoolkit.googleapis.com/v1/accounts:signInWithEmailLink"
+            return (
+                f"http://{emulator_host}"
+                "/identitytoolkit.googleapis.com/v1/accounts:signInWithEmailLink"
+            )
         else:
             # Use production Firebase endpoint
-            return "https://identitytoolkit.googleapis.com/v1/accounts:signInWithEmailLink"
+            return (
+                "https://identitytoolkit.googleapis.com/v1/accounts:signInWithEmailLink"
+            )
 
     async def exchange_oob_code_for_id_token(self, oob_code: str, email: str) -> str:
         """
