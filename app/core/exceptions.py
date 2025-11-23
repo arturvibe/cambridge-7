@@ -17,6 +17,12 @@ class PublisherError(Exception):
     pass
 
 
+class FrameioClientError(Exception):
+    """Raised for errors interacting with the Frame.io API."""
+
+    pass
+
+
 class InvalidWebhookError(Exception):
     """
     Raised when webhook event fails business validation.

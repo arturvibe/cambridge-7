@@ -27,7 +27,7 @@ def get_webhook_service_dependency() -> FrameioWebhookService:
 
 
 @router.post("/webhook")
-async def frameio_webhook(
+def frameio_webhook(
     event: FrameIOEvent,
     request: Request,
     webhook_service: FrameioWebhookService = Depends(get_webhook_service_dependency),
@@ -35,8 +35,8 @@ async def frameio_webhook(
     """
     Receive Frame.io webhook and process event.
 
-    This endpoint is a "dumb adapter" - it only translates HTTP to Python.
-    All business logic (logging, publishing, error handling) is in the service.
+    This endpoint uses a sync function so FastAPI runs it in a thread pool,
+    preventing the blocking Pub/Sub call from affecting other requests.
 
     FastAPI automatically:
     - Parses JSON body (returns 422 if invalid JSON)

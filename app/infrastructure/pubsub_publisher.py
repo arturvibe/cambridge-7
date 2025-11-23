@@ -65,6 +65,10 @@ class GooglePubSubPublisher:
         domain object to JSON for Pub/Sub. The core domain works with domain
         objects; this adapter translates them to infrastructure format.
 
+        Note: This method blocks while waiting for Pub/Sub acknowledgment.
+        The endpoint uses a sync function so FastAPI runs it in a thread pool,
+        preventing this from blocking other requests.
+
         Args:
             event: The domain event to publish
 
