@@ -42,6 +42,24 @@ services:
         echo "Pub/Sub setup complete!"
       '
 
+  # Firebase Auth Emulator
+  firebase-emulator:
+    image: andreysenov/firebase-tools:latest
+    command: firebase emulators:start --only auth --project cambridge-local
+    ports:
+      - "9099:9099"   # Auth emulator
+      - "4000:4000"   # Emulator UI
+    environment:
+      - FIREBASE_AUTH_EMULATOR_HOST=0.0.0.0:9099
+    volumes:
+      - ./firebase.json:/home/node/firebase.json:ro
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"require('http').get('http://localhost:9099', r => process.exit(r.statusCode ? 0 : 1)).on('error', () => process.exit(1))\""]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
   # Cambridge application
   cambridge:
     build: .
@@ -50,11 +68,17 @@ services:
     environment:
       - PUBSUB_EMULATOR_HOST=pubsub-emulator:8085
       - GCP_PROJECT_ID=cambridge-local
+      - GOOGLE_CLOUD_PROJECT=cambridge-local
       - PUBSUB_TOPIC_NAME=frameio-events
+      - FIREBASE_AUTH_EMULATOR_HOST=firebase-emulator:9099
+      - FIREBASE_WEB_API_KEY=fake-api-key
+      - BASE_URL=http://localhost:8080
     depends_on:
       pubsub-emulator:
         condition: service_healthy
       pubsub-init:
         condition: service_completed_successfully
+      firebase-emulator:
+        condition: service_healthy
     volumes:
       - ./app:/app/app:ro

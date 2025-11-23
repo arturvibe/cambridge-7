@@ -38,3 +38,8 @@ variable "cloud_run_sa_name" {
   type        = string
   default     = "cambridge-cloud-run"
 }
+
+variable "cloud_run_domain" {
+  description = "Cloud Run service domain (e.g., cambridge-abc123-ew.a.run.app)"
+  type        = string
+}

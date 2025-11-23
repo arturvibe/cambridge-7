@@ -298,7 +298,7 @@ See `.github/workflows/test.yml` for CI configuration and `tests/README.md` for 
 
 **Option 1: Run with Docker Compose (Recommended)**
 
-Runs the app with Pub/Sub emulator for full local testing:
+Runs the app with Pub/Sub and Firebase Auth emulators for full local testing:
 
 ```bash
 docker-compose up
@@ -306,8 +306,17 @@ docker-compose up
 
 This starts:
 - Pub/Sub emulator on port 8085
+- Firebase Auth emulator on port 9099 (UI at http://localhost:4000)
 - Cambridge app on `http://localhost:8080`
 - Auto-creates topic (`frameio-events`) and debug subscription (`frameio-events-debug-sub`)
+
+**Test magic link authentication:**
+```bash
+curl -X POST http://localhost:8080/auth/magic/send \
+  -H "Content-Type: application/json" \
+  -d '{"email": "test@example.com"}'
+# Copy magic link from logs, paste in browser → redirects to /dashboard
+```
 
 **Test the webhook:**
 ```bash
@@ -417,6 +426,103 @@ gcloud alpha monitoring policies create \
     --condition-threshold-value=0.05 \
     --condition-threshold-duration=60s
 ```
+
+## Magic Link Authentication
+
+The application includes a self-contained magic link authentication system using Firebase. This allows developers to authenticate entirely through the backend without any frontend code.
+
+### Prerequisites
+
+1. **Firebase Project**: Create a Firebase project at [Firebase Console](https://console.firebase.google.com/)
+2. **Enable Email Link Sign-In**:
+   - Go to Firebase Console → Authentication → Sign-in method
+   - Enable "Email/Password" provider
+   - Enable "Email link (passwordless sign-in)"
+3. **Firebase Service Account**: Ensure your GCP project has the Firebase Admin SDK service account configured
+4. **Authorized Domains**: Add your callback domain to Firebase → Authentication → Settings → Authorized domains
+
+### Required Environment Variables
+
+```bash
+# Firebase Web API Key (from Firebase Console → Project Settings → General)
+FIREBASE_WEB_API_KEY=your-firebase-web-api-key
+
+# Base URL where the service is running
+BASE_URL=http://localhost:8080  # For local development
+# BASE_URL=https://your-service.run.app  # For production
+```
+
+### Authentication Flow
+
+1. **Generate Magic Link**: Call `POST /auth/magic/send` with your email
+2. **Copy Link from Logs**: The magic link appears in server logs
+3. **Click Link**: Paste the link in your browser
+4. **Automatic Redirect**: You're redirected to `/dashboard` with a session cookie
+
+### API Endpoints
+
+#### POST /auth/magic/send - Generate Magic Link
+
+Request a magic link for email authentication.
+
+```bash
+curl -X POST http://localhost:8080/auth/magic/send \
+  -H "Content-Type: application/json" \
+  -d '{"email": "your-email@example.com"}'
+```
+
+Response:
+```json
+{
+  "status": "success",
+  "message": "Magic link generated - check server logs"
+}
+```
+
+**Important**: Check the server logs/console for the actual magic link URL.
+
+#### GET /auth/magic/callback - Magic Link Callback
+
+This endpoint is called automatically when the user clicks the magic link. It:
+1. Exchanges the Firebase oobCode for an ID token
+2. Creates a session cookie
+3. Redirects to `/dashboard`
+
+#### GET /dashboard - Protected Resource
+
+A protected endpoint that requires authentication.
+
+```bash
+# Without authentication:
+curl http://localhost:8080/dashboard
+# Returns: 401 Unauthorized
+
+# With session cookie (after magic link authentication):
+curl http://localhost:8080/dashboard -b "session=<session-cookie>"
+# Returns: {"status": "success", "message": "Welcome, you are authenticated!", ...}
+```
+
+### Local Development (Docker Compose)
+
+Docker Compose includes Firebase Auth Emulator - no configuration needed:
+
+```bash
+docker-compose up
+curl -X POST http://localhost:8080/auth/magic/send \
+  -H "Content-Type: application/json" \
+  -d '{"email": "test@example.com"}'
+# Copy magic link from logs, paste in browser → /dashboard
+```
+
+Firebase Emulator UI available at http://localhost:4000
+
+### Production Setup
+
+Set environment variables:
+- `FIREBASE_WEB_API_KEY` - From Firebase Console
+- `BASE_URL` - Your service URL (e.g., `https://your-service.run.app`)
+
+Add callback domain to Firebase → Authentication → Settings → Authorized domains
 
 ## Security Considerations
 
