@@ -82,6 +82,9 @@ jobs:
             FIREBASE_WEB_API_KEY=${{ secrets.FIREBASE_WEB_API_KEY }}
             SESSION_SECRET_KEY=${{ secrets.SESSION_SECRET_KEY }}
             BASE_URL=${{ steps.service-url.outputs.service_url }}
+            SESSION_SECRET_KEY=${{ secrets.SESSION_SECRET_KEY }}
+            ADOBE_CLIENT_ID=${{ secrets.ADOBE_CLIENT_ID }}
+            ADOBE_CLIENT_SECRET=${{ secrets.ADOBE_CLIENT_SECRET }}
           flags: |
             --allow-unauthenticated
             --max-instances=1

@@ -100,6 +100,10 @@ See [terraform/README.md](terraform/README.md) for detailed Terraform documentat
    - Add the following secrets:
      - `GCP_PROJECT_ID`: Your GCP project ID
      - `GCP_SA_KEY`: Contents of the `key.json` file (entire JSON)
+     - `FIREBASE_WEB_API_KEY`: Firebase Web API key (for magic link auth)
+     - `SESSION_SECRET_KEY`: Secure random string for session encryption
+     - `ADOBE_CLIENT_ID`: Adobe OAuth client ID (for Frame.io integration)
+     - `ADOBE_CLIENT_SECRET`: Adobe OAuth client secret
 
 2. **Configure the workflow (if needed):**
    - Edit `.github/workflows/deploy.yml` if you want to change:
@@ -555,8 +559,6 @@ SESSION_SECRET_KEY=your-secure-random-string
 
 The application requests the following scopes:
 - `openid` - OpenID Connect
-- `email` - User email
-- `profile` - User profile
 - `frame.io.read` - Read access to Frame.io
 - `frame.io.write` - Write access to Frame.io
 

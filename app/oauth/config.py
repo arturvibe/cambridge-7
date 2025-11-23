@@ -117,7 +117,7 @@ def create_oauth_registry(config: OAuthConfig | None = None) -> OAuth:
             authorize_url="https://ims-na1.adobelogin.com/ims/authorize/v2",
             access_token_url="https://ims-na1.adobelogin.com/ims/token/v3",
             client_kwargs={
-                "scope": "openid email profile frame.io.read frame.io.write",
+                "scope": "openid frame.io.read frame.io.write",
             },
         )
         logger.info("Registered Adobe OAuth provider")
