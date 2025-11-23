@@ -22,9 +22,10 @@ from fastapi.exceptions import RequestValidationError  # noqa: E402
 from fastapi.responses import JSONResponse  # noqa: E402
 from starlette.middleware.sessions import SessionMiddleware  # noqa: E402
 
-from app.api import auth, frameio  # noqa: E402
+from app.api import auth, frameio, magic  # noqa: E402
 from app.api.auth import get_oauth_service_dependency  # noqa: E402
 from app.api.frameio import get_webhook_service_dependency  # noqa: E402
+from app.auth.dependencies import get_current_user  # noqa: E402
 from app.core.exceptions import PublisherError  # noqa: E402
 from app.core.oauth_service import OAuthService  # noqa: E402
 from app.core.services import FrameioWebhookService  # noqa: E402
@@ -185,11 +186,45 @@ async def health():
 
 
 # ============================================================================
+# Protected Endpoints
+# ============================================================================
+
+
+@app.get("/dashboard")
+async def dashboard(current_user: dict = Depends(get_current_user)):
+    """
+    Protected dashboard endpoint.
+
+    Requires a valid session cookie to access.
+
+    Args:
+        current_user: User claims from validated session cookie
+
+    Returns:
+        Welcome message with user information
+    """
+    user_email = current_user.get("email", "unknown")
+    user_uid = current_user.get("uid", "unknown")
+
+    logger.info(f"Dashboard accessed by user: {user_uid}")
+
+    return {
+        "status": "success",
+        "message": "Welcome, you are authenticated!",
+        "user": {
+            "uid": user_uid,
+            "email": user_email,
+        },
+    }
+
+
+# ============================================================================
 # Include Routers
 # ============================================================================
 
 app.include_router(frameio.router)
 app.include_router(auth.router)
+app.include_router(magic.router)
 
 
 # ============================================================================

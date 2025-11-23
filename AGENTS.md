@@ -2,7 +2,7 @@
 
 FastAPI webhook receiver for Frame.io V4 → logs payloads to GCP Cloud Run → publishes to Pub/Sub → viewable via Cloud Logging.
 
-**Stack:** Python 3.11 • FastAPI 0.109.0 • Pydantic v2 • google-cloud-logging • google-cloud-pubsub • Docker • GCP Cloud Run • Terraform
+**Stack:** Python 3.11 • FastAPI 0.109.0 • Pydantic v2 • google-cloud-logging • google-cloud-pubsub • firebase-admin • Docker • GCP Cloud Run • Terraform
 
 **Flow:** `Frame.io → /api/v1/frameio/webhook → [Validate → Log → Publish to Pub/Sub] → Cloud Logging`
 
@@ -12,7 +12,8 @@ FastAPI webhook receiver for Frame.io V4 → logs payloads to GCP Cloud Run → 
 ```
 ┌─────────────────────────────────────────┐
 │ Driving Adapters (app/api/)             │
-│ - frameio.py: HTTP endpoint (dumb)      │
+│ - frameio.py: Webhook endpoint (dumb)   │
+│ - magic.py: Auth endpoints (dumb)       │
 └─────────────────┬───────────────────────┘
                   ↓
 ┌─────────────────────────────────────────┐
@@ -21,6 +22,11 @@ FastAPI webhook receiver for Frame.io V4 → logs payloads to GCP Cloud Run → 
 │ - services.py: Business logic (smart)   │
 │ - ports.py: EventPublisher interface    │
 │ - exceptions.py: Domain exceptions      │
+├─────────────────────────────────────────┤
+│ Auth Module (app/auth/)                 │
+│ - config.py: Firebase configuration     │
+│ - services.py: Auth business logic      │
+│ - dependencies.py: Session validation   │
 └─────────────────┬───────────────────────┘
                   ↓
 ┌─────────────────────────────────────────┐
@@ -37,15 +43,20 @@ FastAPI webhook receiver for Frame.io V4 → logs payloads to GCP Cloud Run → 
 ## Structure
 
 **Core files:**
-- `app/main.py` - FastAPI app wiring, dependency injection, centralized exception handlers
-- `app/api/frameio.py` - HTTP endpoint (dumb adapter, delegates to service)
+- `app/main.py` - FastAPI app wiring, dependency injection, centralized exception handlers, /dashboard endpoint
+- `app/api/frameio.py` - Frame.io webhook endpoint (dumb adapter, delegates to service)
+- `app/api/magic.py` - Magic link auth endpoints (dumb adapter, /auth/magic/send, /auth/magic/callback)
 - `app/core/domain.py` - FrameIOEvent domain model (Pydantic v2)
 - `app/core/services.py` - Business logic (logging, publishing, validation)
 - `app/core/ports.py` - EventPublisher port (interface)
 - `app/core/exceptions.py` - Domain exceptions (PublisherError, InvalidWebhookError)
+- `app/auth/config.py` - Firebase Admin SDK configuration and initialization
+- `app/auth/services.py` - Auth services (MagicLinkService, TokenExchangeService, SessionCookieService)
+- `app/auth/dependencies.py` - FastAPI dependencies for session cookie validation
 - `app/infrastructure/pubsub_publisher.py` - Pub/Sub implementation
 - `app/logging_config.py` - Logging configuration with Cloud Run detection
 - `tests/test_webhook.py` - Webhook endpoint tests
+- `tests/test_auth.py` - Magic link authentication tests
 - `tests/test_pubsub_integration.py` - Pub/Sub integration tests
 - `tests/test_pubsub_publisher.py` - Publisher unit tests (90%+ coverage)
 - `tests/test_health.py` - Health endpoint tests
@@ -103,13 +114,17 @@ docker build -t cambridge . && docker run -p 8080:8080 cambridge
   - Config: `app/logging_config.py` with `setup_global_logging()`
   - Cloud Run: google-cloud-logging with trace correlation (detected via K_SERVICE env var)
   - Local/Test: Standard Python logging to stdout
-  - Structured JSON: Single log entry per webhook (see app/core/services.py:60-78)
+  - Structured JSON: Single log entry with `json.dumps()` (see app/core/services.py:60-78, app/api/magic.py:108-114)
+- **Environment:** No default values for required env vars - app should fail fast at startup if missing
 - **Tests:** 90%+ coverage, Test* classes, descriptive names, fixtures, test contracts not implementation
 
 **Endpoints:**
 - `GET /` - Health check with service info
 - `GET /health` - Simple health check
 - `POST /api/v1/frameio/webhook` - Receives Frame.io webhooks, validates, logs, publishes to Pub/Sub
+- `POST /auth/magic/send` - Generate magic link for email authentication (logged as JSON)
+- `GET /auth/magic/callback` - Firebase callback, exchanges oobCode for session cookie, redirects to /dashboard
+- `GET /dashboard` - Protected endpoint, requires valid session cookie
 
 **HTTP Status Codes:**
 - `200 OK` - Event successfully published, returns `{"message_id": "..."}`
@@ -158,7 +173,7 @@ docker build -t cambridge . && docker run -p 8080:8080 cambridge
 1. Run tests: `pytest --cov=app --cov-report=term-missing`
 2. For features: Add to app/main.py → Add tests → Update README → Commit (`feat:`)
 3. For bugs: Write failing test → Fix → Verify → Commit (`fix:`)
-4. Before commit: `black app/ tests/` + verify commit format
+4. Before commit: You MUST run `pre-commit run --all-files` and fix any errors.
 
 **Common tasks:**
 - Add webhook field: Extract in app/main.py → Log + Publish to Pub/Sub → Add tests
@@ -185,7 +200,7 @@ docker build -t cambridge . && docker run -p 8080:8080 cambridge
 # Development
 python app/main.py                              # Run locally
 pytest --cov=app --cov-report=term-missing      # Test
-black app/ tests/                               # Format
+pre-commit run --all-files                      # Format & Lint
 
 # Docker
 docker build -t cambridge . && docker run -p 8080:8080 cambridge
@@ -213,6 +228,12 @@ gcloud pubsub topics publish frameio-events --message='{"test": "message"}'
 cd terraform && terraform init && terraform apply
 terraform output -raw github_actions_service_account_key | base64 -d > key.json
 terraform output pubsub_topic_name          # View Pub/Sub topic name
+
+# Magic Link Authentication (with docker-compose)
+curl -X POST http://localhost:8080/auth/magic/send \
+  -H "Content-Type: application/json" \
+  -d '{"email": "test@example.com"}'
+# Copy magic link from logs, paste in browser → /dashboard
 ```
 
 ## Deployment
@@ -231,7 +252,10 @@ terraform output pubsub_topic_name          # View Pub/Sub topic name
 **Environment Variables (Cloud Run):**
 - `GCP_PROJECT_ID` - GCP project ID (required)
 - `PUBSUB_TOPIC_NAME` - Pub/Sub topic name (required)
-- `PUBSUB_EMULATOR_HOST` - Pub/Sub emulator host (local dev only, e.g., `localhost:8085`)
+- `PUBSUB_EMULATOR_HOST` - Pub/Sub emulator host (local dev only)
+- `FIREBASE_AUTH_EMULATOR_HOST` - Firebase Auth emulator host (local dev only)
+- `FIREBASE_WEB_API_KEY` - Firebase Web API key (required for magic link auth)
+- `BASE_URL` - Auto-derived from Cloud Run service URL during deployment
 - `K_SERVICE` - Auto-set by Cloud Run (triggers structured logging)
 
 ## Frame.io Integration
@@ -252,5 +276,13 @@ terraform output pubsub_topic_name          # View Pub/Sub topic name
 - Pub/Sub emulator not working → Ensure PUBSUB_EMULATOR_HOST is set, topic/subscription created (run setup script)
 - Messages not in Pub/Sub → Check application logs for publishing errors, verify topic exists
 
+## Magic Link Authentication
+
+**Flow:** `POST /auth/magic/send → Firebase generates link → User clicks → /auth/magic/callback → Session cookie → /dashboard`
+
+**Local Development:** `docker-compose up` starts Firebase Auth Emulator (port 9099, UI at 4000)
+
+**Production:** Set `FIREBASE_WEB_API_KEY`, `BASE_URL`, add callback domain to Firebase authorized domains
+
 ---
-*Updated: 2025-11-16 | Python 3.11 | FastAPI 0.109.0 | google-cloud-pubsub 2.21.1*
+*Updated: 2025-11-22 | Python 3.11 | FastAPI 0.109.0 | google-cloud-pubsub 2.21.1 | firebase-admin 6.4.0*
