@@ -251,10 +251,11 @@ curl -X POST http://localhost:8080/auth/magic/send \
 **Environment Variables (Cloud Run):**
 - `GCP_PROJECT_ID` - GCP project ID (required)
 - `PUBSUB_TOPIC_NAME` - Pub/Sub topic name (required)
-- `PUBSUB_EMULATOR_HOST` - Pub/Sub emulator host (local dev only, e.g., `localhost:8085`)
-- `K_SERVICE` - Auto-set by Cloud Run (triggers structured logging)
+- `PUBSUB_EMULATOR_HOST` - Pub/Sub emulator host (local dev only)
+- `FIREBASE_AUTH_EMULATOR_HOST` - Firebase Auth emulator host (local dev only)
 - `FIREBASE_WEB_API_KEY` - Firebase Web API key (required for magic link auth)
-- `BASE_URL` - Public URL of the service (default: `http://localhost:8080`)
+- `BASE_URL` - Auto-derived from Cloud Run service URL during deployment
+- `K_SERVICE` - Auto-set by Cloud Run (triggers structured logging)
 
 ## Frame.io Integration
 

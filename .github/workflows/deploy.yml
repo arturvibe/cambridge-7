@@ -39,6 +39,17 @@ jobs:
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
 
+      - name: Get existing service URL
+        id: service-url
+        run: |
+          # Get URL from existing service (empty if service doesn't exist yet)
+          SERVICE_URL=$(gcloud run services describe $SERVICE_NAME \
+            --region=$REGION \
+            --platform=managed \
+            --format='value(status.url)' 2>/dev/null || echo "")
+          echo "service_url=$SERVICE_URL" >> $GITHUB_OUTPUT
+          echo "Existing service URL: ${SERVICE_URL:-'(new service)'}"
+
       - name: Configure Docker for Artifact Registry
         run: |
           gcloud auth configure-docker $REGION-docker.pkg.dev
@@ -69,7 +80,7 @@ jobs:
             GCP_PROJECT_ID=${{ env.PROJECT_ID }}
             PUBSUB_TOPIC_NAME=frameio-events
             FIREBASE_WEB_API_KEY=${{ secrets.FIREBASE_WEB_API_KEY }}
-            BASE_URL=${{ secrets.BASE_URL }}
+            BASE_URL=${{ steps.service-url.outputs.service_url }}
           flags: |
             --allow-unauthenticated
             --max-instances=1
