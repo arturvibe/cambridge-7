@@ -51,11 +51,11 @@ services:
     environment:
       - FIREBASE_AUTH_EMULATOR_HOST=0.0.0.0:9099
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9099/"]
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:9099/ || exit 1"]
       interval: 5s
       timeout: 3s
       retries: 10
-      start_period: 10s
+      start_period: 15s
 
   # Cambridge application
   cambridge:
