@@ -7,9 +7,8 @@ Firestore implementation can be added as a separate adapter.
 """
 
 import logging
-from abc import ABC, abstractmethod
 from datetime import datetime, UTC
-from typing import Any
+from typing import Any, Protocol
 
 from app.users.models import OAuthToken, User
 
@@ -17,15 +16,16 @@ from app.users.models import OAuthToken, User
 logger = logging.getLogger(__name__)
 
 
-class UserRepository(ABC):
+class UserRepository(Protocol):
     """
-    Abstract base class defining the user repository interface.
+    Protocol defining the user repository interface.
 
     This is the "port" in hexagonal architecture - it defines what
     operations the domain needs, without specifying how they're implemented.
+    Uses Protocol for structural subtyping (duck typing), consistent with
+    EventPublisher in app/core/ports.py.
     """
 
-    @abstractmethod
     async def get_by_uid(self, uid: str) -> User | None:
         """
         Get a user by Firebase UID.
@@ -38,7 +38,6 @@ class UserRepository(ABC):
         """
         ...
 
-    @abstractmethod
     async def create(self, user: User) -> User:
         """
         Create a new user.
@@ -54,7 +53,6 @@ class UserRepository(ABC):
         """
         ...
 
-    @abstractmethod
     async def get_or_create(self, uid: str, email: str) -> User:
         """
         Get existing user or create new one.
@@ -70,7 +68,6 @@ class UserRepository(ABC):
         """
         ...
 
-    @abstractmethod
     async def save_token(
         self, uid: str, provider: str, token_data: dict[str, Any]
     ) -> OAuthToken:
@@ -89,7 +86,6 @@ class UserRepository(ABC):
         """
         ...
 
-    @abstractmethod
     async def get_token(self, uid: str, provider: str) -> OAuthToken | None:
         """
         Get OAuth token for a specific provider.
@@ -103,7 +99,6 @@ class UserRepository(ABC):
         """
         ...
 
-    @abstractmethod
     async def delete_token(self, uid: str, provider: str) -> bool:
         """
         Delete OAuth token (disconnect service).
@@ -117,7 +112,6 @@ class UserRepository(ABC):
         """
         ...
 
-    @abstractmethod
     async def list_connections(self, uid: str) -> list[str]:
         """
         List connected OAuth providers for a user.

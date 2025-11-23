@@ -32,7 +32,7 @@ Implement `FirestoreUserRepository` in `app/infrastructure/firestore_repository.
 ## Interface to Implement
 
 ```python
-class UserRepository(ABC):
+class UserRepository(Protocol):
     async def get_by_uid(self, uid: str) -> User | None
     async def create(self, user: User) -> User
     async def get_or_create(self, uid: str, email: str) -> User
@@ -41,6 +41,8 @@ class UserRepository(ABC):
     async def delete_token(self, uid: str, provider: str) -> bool
     async def list_connections(self, uid: str) -> list[str]
 ```
+
+Note: Uses `Protocol` (structural subtyping) not `ABC` - no explicit inheritance required.
 
 ## Firestore Data Model
 
