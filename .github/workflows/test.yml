@@ -28,7 +28,7 @@ jobs:
 
       - name: Run tests with pytest
         run: |
-          pytest --cov=app --cov-report=term-missing --cov-report=xml --ignore=tests/test_auth_e2e.py
+          pytest --cov=app --cov-report=term-missing --cov-report=xml --ignore=tests/e2e/
 
       - name: Upload coverage reports
         uses: codecov/codecov-action@v3
@@ -72,7 +72,7 @@ jobs:
           FIREBASE_WEB_API_KEY: fake-api-key
           BASE_URL: http://localhost:8080
         run: |
-          pytest tests/test_auth_e2e.py -v -s
+          pytest tests/e2e/ -v -s
 
       - name: Show emulator logs on failure
         if: failure()
