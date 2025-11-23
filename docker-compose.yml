@@ -53,7 +53,7 @@ services:
     volumes:
       - ./firebase.json:/home/node/firebase.json:ro
     healthcheck:
-      test: ["CMD-SHELL", "netstat -an | grep -c 9099 || exit 1"]
+      test: ["CMD-SHELL", "node -e \"require('http').get('http://localhost:9099', r => process.exit(r.statusCode ? 0 : 1)).on('error', () => process.exit(1))\""]
       interval: 10s
       timeout: 5s
       retries: 10
