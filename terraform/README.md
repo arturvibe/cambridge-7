@@ -13,7 +13,7 @@ GCP infrastructure for the Cambridge webhook receiver.
 
 **Service Accounts:**
 - `github-actions` - CI/CD deployment (run.admin, artifactregistry.writer, iam.serviceAccountUser)
-- `cambridge-cloud-run` - Cloud Run service (pubsub.publisher)
+- `cambridge-cloud-run` - Cloud Run service (pubsub.publisher, firebaseauth.admin)
 
 ## Quick Start
 

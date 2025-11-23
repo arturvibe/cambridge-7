@@ -164,7 +164,7 @@ resource "google_pubsub_subscription" "frameio_webhooks_debug_sub" {
 resource "google_service_account" "cloud_run" {
   account_id   = var.cloud_run_sa_name
   display_name = "Cloud Run Service Account"
-  description  = "Service account used by Cloud Run service to publish to Pub/Sub"
+  description  = "Service account for Cloud Run (Pub/Sub publisher, Firebase Auth)"
   project      = var.project_id
 
   depends_on = [google_project_service.iam]
@@ -175,6 +175,15 @@ resource "google_pubsub_topic_iam_member" "cloud_run_publisher" {
   project = var.project_id
   topic   = google_pubsub_topic.frameio_webhooks.name
   role    = "roles/pubsub.publisher"
+  member  = "serviceAccount:${google_service_account.cloud_run.email}"
+
+  depends_on = [google_service_account.cloud_run]
+}
+
+# IAM role for Cloud Run service account to use Firebase Auth (magic links)
+resource "google_project_iam_member" "cloud_run_firebase_auth" {
+  project = var.project_id
+  role    = "roles/firebaseauth.admin"
   member  = "serviceAccount:${google_service_account.cloud_run.email}"
 
   depends_on = [google_service_account.cloud_run]
