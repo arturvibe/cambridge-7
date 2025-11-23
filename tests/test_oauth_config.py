@@ -5,11 +5,8 @@ Tests for OAuth configuration and provider registry.
 import os
 from unittest.mock import patch
 
-import pytest
-
 from app.oauth.config import (
     OAuthConfig,
-    get_oauth_config,
     create_oauth_registry,
     SUPPORTED_PROVIDERS,
     reset_oauth_registry,

@@ -4,7 +4,7 @@ Tests for UserRepository implementations.
 
 import pytest
 
-from app.users.models import OAuthToken, User
+from app.users.models import User
 from app.users.repository import (
     InMemoryUserRepository,
     get_user_repository,

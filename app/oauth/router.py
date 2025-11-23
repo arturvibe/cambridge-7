@@ -10,7 +10,7 @@ Additional endpoints (list connections, disconnect) can be added later.
 
 import logging
 
-from authlib.integrations.starlette_client import OAuth, OAuthError
+from authlib.integrations.starlette_client import OAuthError
 from fastapi import APIRouter, HTTPException, Request, status
 from fastapi.responses import RedirectResponse
 
@@ -97,7 +97,7 @@ async def callback(
     Raises:
         HTTPException: On OAuth errors
     """
-    user_uid = user.get("uid")
+    user_uid: str = user["uid"]
 
     logger.info(
         f"OAuth callback received for provider: {provider}",
@@ -159,7 +159,7 @@ async def list_connections(
     Returns:
         List of connected provider names
     """
-    user_uid = user.get("uid")
+    user_uid: str = user["uid"]
     connections = await repository.list_connections(user_uid)
 
     return {
@@ -187,7 +187,7 @@ async def disconnect(
     Returns:
         Success message
     """
-    user_uid = user.get("uid")
+    user_uid: str = user["uid"]
 
     deleted = await repository.delete_token(user_uid, provider)
 

@@ -3,7 +3,7 @@ Tests for OAuth router endpoints.
 """
 
 import os
-from unittest.mock import MagicMock, patch, AsyncMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
@@ -21,7 +21,7 @@ with patch.dict(
 ):
     from app.main import app
     from app.auth.dependencies import get_current_user
-    from app.oauth.dependencies import get_oauth, get_repository, validate_provider
+    from app.oauth.dependencies import get_repository
     from app.oauth.config import get_oauth_config, OAuthConfig
     from app.users.repository import InMemoryUserRepository
 
