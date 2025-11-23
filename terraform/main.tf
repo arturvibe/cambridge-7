@@ -83,6 +83,13 @@ resource "google_firebase_web_app" "cambridge" {
   depends_on = [google_firebase_project.default]
 }
 
+# Get Firebase Web App config (contains API key)
+data "google_firebase_web_app_config" "cambridge" {
+  provider   = google-beta
+  project    = var.project_id
+  web_app_id = google_firebase_web_app.cambridge.app_id
+}
+
 # Create Artifact Registry repository for Docker images
 resource "google_artifact_registry_repository" "docker_repo" {
   location      = var.region

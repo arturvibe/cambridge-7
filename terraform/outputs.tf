@@ -41,6 +41,12 @@ output "firebase_web_app_id" {
   value       = google_firebase_web_app.cambridge.app_id
 }
 
+output "firebase_web_api_key" {
+  description = "Firebase Web API Key for authentication"
+  value       = data.google_firebase_web_app_config.cambridge.api_key
+  sensitive   = true
+}
+
 output "artifact_registry_repository" {
   description = "Artifact Registry repository name"
   value       = google_artifact_registry_repository.docker_repo.name
