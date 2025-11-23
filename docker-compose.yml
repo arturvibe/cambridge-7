@@ -67,6 +67,7 @@ services:
     environment:
       - PUBSUB_EMULATOR_HOST=pubsub-emulator:8085
       - GCP_PROJECT_ID=cambridge-local
+      - GOOGLE_CLOUD_PROJECT=cambridge-local
       - PUBSUB_TOPIC_NAME=frameio-events
       - FIREBASE_AUTH_EMULATOR_HOST=firebase-emulator:9099
       - FIREBASE_WEB_API_KEY=fake-api-key
