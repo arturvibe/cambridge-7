@@ -2,6 +2,7 @@ services:
   # Google Cloud Pub/Sub Emulator
   pubsub-emulator:
     image: gcr.io/google.com/cloudsdktool/cloud-sdk:emulators
+    platform: linux/amd64
     command: gcloud beta emulators pubsub start --host-port=0.0.0.0:8085 --project=cambridge-local
     ports:
       - "8085:8085"
