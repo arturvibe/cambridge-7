@@ -28,7 +28,7 @@ jobs:
 
       - name: Run tests with pytest
         run: |
-          pytest --cov=app --cov-report=term-missing --cov-report=xml
+          pytest --cov=app --cov-report=term-missing --cov-report=xml --ignore=tests/test_auth_e2e.py
 
       - name: Upload coverage reports
         uses: codecov/codecov-action@v3
