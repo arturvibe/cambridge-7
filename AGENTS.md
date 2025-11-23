@@ -244,7 +244,8 @@ curl -X POST http://localhost:8080/api/v1/frameio/webhook \
   -d '{"type": "file.created", "resource": {"id": "test-123", "type": "file"}, "account": {"id": "acc-123"}}'
 
 # GCP logs
-gcloud logging tail "resource.type=cloud_run_revision AND resource.labels.service_name=cambridge"
+# Note: This command requires a recent version of the gcloud CLI.
+gcloud beta run services logs tail cambridge --project cambridge-7 --region europe-west1
 
 # View deployed image in Artifact Registry
 gcloud artifacts docker tags list europe-west1-docker.pkg.dev/$PROJECT_ID/cambridge-repo/cambridge
