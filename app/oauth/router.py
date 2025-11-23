@@ -123,9 +123,39 @@ async def callback(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=f"OAuth authorization failed: {e.description or str(e)}",
         )
+    except Exception as e:
+        logger.error(
+            f"Unexpected error during token exchange: {e}",
+            extra={"user_uid": user_uid, "provider": provider, "error": str(e)},
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Token exchange failed: {str(e)}",
+        )
+
+    logger.info(
+        f"Token received from {provider}",
+        extra={
+            "user_uid": user_uid,
+            "provider": provider,
+            "token_keys": list(token.keys()) if token else None,
+        },
+    )
 
     # Store tokens in repository
-    await repository.save_token(user_uid, provider, dict(token))
+    try:
+        await repository.save_token(user_uid, provider, dict(token))
+    except Exception as e:
+        logger.error(
+            f"Failed to save token: {e}",
+            extra={"user_uid": user_uid, "provider": provider, "error": str(e)},
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to save token: {str(e)}",
+        )
 
     logger.info(
         f"Successfully connected {provider} for user",
