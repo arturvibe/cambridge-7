@@ -25,7 +25,6 @@ from starlette.middleware.sessions import SessionMiddleware  # noqa: E402
 from app.api import frameio  # noqa: E402
 from app.api import magic  # noqa: E402
 from app.oauth import router as oauth_router  # noqa: E402
-from app.integrations.adobe import router as adobe_router  # noqa: E402
 from app.api.frameio import get_webhook_service_dependency  # noqa: E402
 from app.auth.dependencies import get_current_user  # noqa: E402
 from app.core.exceptions import PublisherError  # noqa: E402
@@ -216,7 +215,6 @@ async def dashboard(current_user: dict = Depends(get_current_user)):
 app.include_router(frameio.router)
 app.include_router(magic.router)
 app.include_router(oauth_router.router)
-app.include_router(adobe_router.router)
 
 
 # ============================================================================
