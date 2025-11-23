@@ -28,9 +28,7 @@ class OAuthToken(BaseModel):
         default=None, description="Token expiration timestamp (Unix epoch)"
     )
     token_type: str = Field(default="Bearer", description="Token type")
-    scope: str | None = Field(
-        default=None, description="Space-separated OAuth scopes"
-    )
+    scope: str | None = Field(default=None, description="Space-separated OAuth scopes")
     connected_at: datetime = Field(
         default_factory=lambda: datetime.now(UTC),
         description="When the service was connected",
@@ -39,7 +37,9 @@ class OAuthToken(BaseModel):
     model_config = ConfigDict(extra="allow")
 
     @classmethod
-    def from_oauth_response(cls, provider: str, token_data: dict[str, Any]) -> "OAuthToken":
+    def from_oauth_response(
+        cls, provider: str, token_data: dict[str, Any]
+    ) -> "OAuthToken":
         """
         Create OAuthToken from authlib token response.
 

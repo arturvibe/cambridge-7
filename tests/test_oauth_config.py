@@ -52,8 +52,14 @@ class TestOAuthConfig:
             google_client_secret=None,
         )
 
-        assert config.get_callback_url("google") == "https://example.com/oauth/google/callback"
-        assert config.get_callback_url("adobe") == "https://example.com/oauth/adobe/callback"
+        assert (
+            config.get_callback_url("google")
+            == "https://example.com/oauth/google/callback"
+        )
+        assert (
+            config.get_callback_url("adobe")
+            == "https://example.com/oauth/adobe/callback"
+        )
 
     def test_is_provider_configured_google_true(self):
         """Test Google provider is configured when credentials exist."""
