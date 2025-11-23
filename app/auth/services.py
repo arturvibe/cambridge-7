@@ -76,13 +76,18 @@ class MagicLinkService:
 class TokenExchangeService:
     """Service for exchanging oobCode for Firebase tokens."""
 
-    # Firebase Auth REST API endpoint for email link sign-in
-    FIREBASE_SIGNIN_URL = (
-        "https://identitytoolkit.googleapis.com/v1/accounts:signInWithEmailLink"
-    )
-
     def __init__(self):
         self.config = get_auth_config()
+
+    def _get_signin_url(self) -> str:
+        """Get the appropriate sign-in URL based on environment."""
+        if self.config.using_emulator:
+            # Use emulator endpoint
+            emulator_host = self.config.firebase_auth_emulator_host
+            return f"http://{emulator_host}/identitytoolkit.googleapis.com/v1/accounts:signInWithEmailLink"
+        else:
+            # Use production Firebase endpoint
+            return "https://identitytoolkit.googleapis.com/v1/accounts:signInWithEmailLink"
 
     async def exchange_oob_code_for_id_token(self, oob_code: str, email: str) -> str:
         """
@@ -98,7 +103,7 @@ class TokenExchangeService:
         Raises:
             AuthenticationError: If token exchange fails
         """
-        url = f"{self.FIREBASE_SIGNIN_URL}?key={self.config.firebase_web_api_key}"
+        url = f"{self._get_signin_url()}?key={self.config.firebase_web_api_key}"
 
         payload = {
             "oobCode": oob_code,
