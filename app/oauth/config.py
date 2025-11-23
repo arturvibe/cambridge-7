@@ -108,7 +108,7 @@ def create_oauth_registry(config: OAuthConfig | None = None) -> OAuth:
     else:
         logger.warning("Google OAuth not configured (missing credentials)")
 
-    # Register Adobe OAuth2 (future)
+    # Register Adobe OAuth2 for Frame.io
     if config.is_provider_configured("adobe"):
         oauth.register(
             name="adobe",
@@ -117,8 +117,7 @@ def create_oauth_registry(config: OAuthConfig | None = None) -> OAuth:
             authorize_url="https://ims-na1.adobelogin.com/ims/authorize/v2",
             access_token_url="https://ims-na1.adobelogin.com/ims/token/v3",
             client_kwargs={
-                "scope": "openid email profile",
-                # Add Frame.io scopes as needed
+                "scope": "openid email profile frame.io.read frame.io.write",
             },
         )
         logger.info("Registered Adobe OAuth provider")
