@@ -25,9 +25,13 @@ os.environ.setdefault("FIREBASE_WEB_API_KEY", "fake-api-key")
 os.environ.setdefault("BASE_URL", "http://localhost:8080")
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture
 def e2e_client():
-    """Test client for E2E tests with real Firebase emulator."""
+    """Test client for E2E tests with real Firebase emulator.
+
+    Function-scoped to ensure each test gets a fresh client without
+    persisted cookies from previous tests.
+    """
     # Import after environment is set up
     from fastapi.testclient import TestClient
 
