@@ -84,7 +84,29 @@ pytest --cov=app --cov-report=term-missing  # Must maintain 90%+ coverage
 docker build -t cambridge . && docker run -p 8080:8080 cambridge
 ```
 
-**Pre-commit hooks:** Auto-format Python (black) and Terraform files before commit
+### Pre-commit Hooks
+
+To run the pre-commit hooks on all files, follow these steps:
+
+1.  **Create a virtual environment:**
+    ```bash
+    python3 -m venv .venv
+    ```
+
+2.  **Activate the virtual environment:**
+    ```bash
+    source .venv/bin/activate
+    ```
+
+3.  **Install dependencies:**
+    ```bash
+    pip install -r requirements-dev.txt
+    ```
+
+4.  **Run pre-commit:**
+    ```bash
+    pre-commit run --all-files
+    ```
 
 **CI/CD:**
 - test (PRs only) → runs pytest with coverage
