@@ -44,9 +44,14 @@ class MagicLinkService:
             AuthenticationError: If link generation fails
         """
         try:
+            # Include email in callback URL since Firebase doesn't add it
+            from urllib.parse import urlencode
+
+            callback_with_email = f"{self.config.callback_url}?{urlencode({'email': email})}"
+
             # Configure the action code settings
             action_code_settings = firebase_auth.ActionCodeSettings(
-                url=self.config.callback_url,
+                url=callback_with_email,
                 handle_code_in_app=False,
             )
 
