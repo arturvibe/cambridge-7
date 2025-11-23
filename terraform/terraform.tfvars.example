@@ -1,8 +1,9 @@
 # Copy this file to terraform.tfvars and fill in your values
 # DO NOT commit terraform.tfvars to version control
 
-project_id = "your-gcp-project-id"
-region     = "europe-west1"
+project_id       = "your-gcp-project-id"
+region           = "europe-west1"
+cloud_run_domain = "cambridge-abc123-ew.a.run.app"  # Get from Cloud Run after first deploy
 
 # Optional: Override defaults
 # github_actions_sa_name      = "github-actions"
