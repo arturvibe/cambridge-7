@@ -25,6 +25,7 @@ jobs:
             --name cambridge-test \
             -p 8080:8080 \
             -e PORT=8080 \
+            -e SESSION_SECRET_KEY=ci-test-key \
             cambridge-test:${{ github.sha }}
 
       - name: Wait for container to be ready
