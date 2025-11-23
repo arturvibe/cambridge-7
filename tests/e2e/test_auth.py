@@ -365,7 +365,7 @@ class TestSessionCookieNoConflict:
         # Step 2: Try to start OAuth flow (will fail without provider config,
         # but should not affect the Firebase session)
         # We use follow_redirects=False to catch any redirect or error
-        oauth_connect_response = e2e_client.get(
+        e2e_client.get(
             "/oauth/adobe/connect",
             cookies={"session": firebase_session},
             follow_redirects=False,
