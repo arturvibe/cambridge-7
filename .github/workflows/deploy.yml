@@ -80,6 +80,7 @@ jobs:
             GCP_PROJECT_ID=${{ env.PROJECT_ID }}
             PUBSUB_TOPIC_NAME=frameio-events
             FIREBASE_WEB_API_KEY=${{ secrets.FIREBASE_WEB_API_KEY }}
+            SESSION_SECRET_KEY=${{ secrets.SESSION_SECRET_KEY }}
             BASE_URL=${{ steps.service-url.outputs.service_url }}
           flags: |
             --allow-unauthenticated

@@ -84,11 +84,67 @@ pre-commit install  # Install git hooks for auto-formatting
 # Run locally with Pub/Sub emulator (recommended)
 docker-compose up  # Starts emulator, sets up topics, and runs app at http://localhost:8080
 
-# Test
-pytest --cov=app --cov-report=term-missing  # Must maintain 90%+ coverage
+## Testing
 
-# Docker
+This project has two test suites: unit tests and end-to-end (E2E) tests.
+
+### Unit Tests
+
+Unit tests mock external services and do not require any running dependencies. They can be run directly after installing dependencies:
+
+```bash
+# Activate virtual environment
+source .venv/bin/activate
+
+# Run all unit tests (ignores E2E tests)
+pytest --cov=app --cov-report=term-missing --ignore=tests/e2e/
+```
+
+### End-to-End (E2E) Tests
+
+E2E tests run against a real Firebase Auth emulator and require Docker. They are designed to be run from your local machine, connecting to the emulator service managed by Docker Compose.
+
+**1. Start the Firebase Emulator:**
+
+First, start the Firebase emulator in the background.
+
+```bash
+docker-compose up -d firebase-emulator
+```
+
+Wait a few moments for it to become healthy. You can check its status with `docker-compose ps`.
+
+**2. Run the E2E Tests:**
+
+Once the emulator is running, run the E2E tests with the required environment variables. These variables tell the tests how to connect to the emulator.
+
+```bash
+source .venv/bin/activate
+
+export FIREBASE_AUTH_EMULATOR_HOST="localhost:9099"
+export GOOGLE_CLOUD_PROJECT="cambridge-local"
+export GCP_PROJECT_ID="cambridge-local"
+export FIREBASE_WEB_API_KEY="fake-api-key"
+export BASE_URL="http://localhost:8080"
+export SESSION_SECRET_KEY="test-secret"
+
+pytest tests/e2e/
+```
+
+**3. Stop the Emulator:**
+
+When you are finished running the tests, stop the emulator.
+
+```bash
+docker-compose down
+```
+
+## Docker
+
+Build and run the production container:
+```bash
 docker build -t cambridge . && docker run -p 8080:8080 cambridge
+```
 ```
 
 ### Pre-commit Hooks
@@ -244,7 +300,8 @@ curl -X POST http://localhost:8080/api/v1/frameio/webhook \
   -d '{"type": "file.created", "resource": {"id": "test-123", "type": "file"}, "account": {"id": "acc-123"}}'
 
 # GCP logs
-gcloud logging tail "resource.type=cloud_run_revision AND resource.labels.service_name=cambridge"
+# Note: This command requires a recent version of the gcloud CLI.
+gcloud beta run services logs tail cambridge --project cambridge-7 --region europe-west1
 
 # View deployed image in Artifact Registry
 gcloud artifacts docker tags list europe-west1-docker.pkg.dev/$PROJECT_ID/cambridge-repo/cambridge

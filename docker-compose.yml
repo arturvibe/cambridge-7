@@ -73,6 +73,9 @@ services:
       - FIREBASE_AUTH_EMULATOR_HOST=firebase-emulator:9099
       - FIREBASE_WEB_API_KEY=fake-api-key
       - BASE_URL=http://localhost:8080
+      # Do not use this secret in production.
+      # For local development, this provides a consistent key.
+      - SESSION_SECRET_KEY=local-dev-secret-key-please-change
     depends_on:
       pubsub-emulator:
         condition: service_healthy
