@@ -72,6 +72,7 @@ terraform/
 | `region` | `europe-west1` | GCP region |
 | `service_name` | `cambridge` | Cloud Run service name |
 | `pubsub_topic_name` | `frameio-events` | Pub/Sub topic name |
+| `cloud_run_domain` | (required) | Cloud Run domain for Firebase auth |
 
 ## Commands
 

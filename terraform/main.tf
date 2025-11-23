@@ -90,6 +90,26 @@ data "google_firebase_web_app_config" "cambridge" {
   web_app_id = google_firebase_web_app.cambridge.app_id
 }
 
+# Enable Email Link (passwordless) sign-in
+resource "google_identity_platform_config" "default" {
+  project = var.project_id
+
+  sign_in {
+    email {
+      enabled           = true
+      password_required = false
+    }
+  }
+
+  # Add Cloud Run domain to authorized domains
+  authorized_domains = [
+    "localhost",
+    var.cloud_run_domain,
+  ]
+
+  depends_on = [google_project_service.identity_toolkit]
+}
+
 # Create Artifact Registry repository for Docker images
 resource "google_artifact_registry_repository" "docker_repo" {
   location      = var.region
