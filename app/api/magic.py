@@ -12,11 +12,10 @@ import logging
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from fastapi.responses import JSONResponse, RedirectResponse, Response
+from fastapi.responses import RedirectResponse, Response
 from pydantic import BaseModel, EmailStr
 
 from app.auth.config import get_auth_config, AuthConfig
-from app.auth.dependencies import get_current_user
 from app.auth.services import (
     AuthenticationError,
     MagicLinkService,
@@ -140,7 +139,9 @@ async def send_magic_link(
 
 @router.get("/callback")
 async def magic_link_callback(
-    oobCode: Annotated[str, Query(description="One-time out-of-band code from Firebase")],
+    oobCode: Annotated[
+        str, Query(description="One-time out-of-band code from Firebase")
+    ],
     email: Annotated[str | None, Query(description="User email address")] = None,
     mode: Annotated[str | None, Query(description="Firebase action mode")] = None,
     continueUrl: Annotated[str | None, Query(description="Continue URL")] = None,

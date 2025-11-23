@@ -40,9 +40,7 @@ class AuthConfig:
         """Validate required configuration."""
         # Skip API key validation when using emulator
         if not self.using_emulator and not self.firebase_web_api_key:
-            raise ValueError(
-                "FIREBASE_WEB_API_KEY environment variable is required"
-            )
+            raise ValueError("FIREBASE_WEB_API_KEY environment variable is required")
         if not self.base_url:
             raise ValueError("BASE_URL environment variable is required")
 

@@ -176,8 +176,12 @@ class TestMagicLinkCallbackEndpoint:
         mock_session_service.create_session_cookie.return_value = "mock-session-cookie"
 
         app.dependency_overrides[get_auth_config] = lambda: mock_auth_config
-        app.dependency_overrides[get_token_exchange_service] = lambda: mock_token_service
-        app.dependency_overrides[get_session_cookie_service] = lambda: mock_session_service
+        app.dependency_overrides[get_token_exchange_service] = (
+            lambda: mock_token_service
+        )
+        app.dependency_overrides[get_session_cookie_service] = (
+            lambda: mock_session_service
+        )
         client = TestClient(app)
 
         try:
@@ -227,7 +231,9 @@ class TestMagicLinkCallbackEndpoint:
         )
 
         app.dependency_overrides[get_auth_config] = lambda: mock_auth_config
-        app.dependency_overrides[get_token_exchange_service] = lambda: mock_token_service
+        app.dependency_overrides[get_token_exchange_service] = (
+            lambda: mock_token_service
+        )
         client = TestClient(app)
 
         try:

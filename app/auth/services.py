@@ -6,7 +6,7 @@ and creating session cookies.
 """
 
 import logging
-from typing import Optional
+from typing import Any
 
 import httpx
 from firebase_admin import auth as firebase_auth
@@ -61,7 +61,7 @@ class MagicLinkService:
                 extra={"email": email},
             )
 
-            return link
+            return str(link)
 
         except Exception as e:
             logger.error(f"Failed to generate magic link: {e}")
@@ -79,9 +79,7 @@ class TokenExchangeService:
     def __init__(self):
         self.config = get_auth_config()
 
-    async def exchange_oob_code_for_id_token(
-        self, oob_code: str, email: str
-    ) -> str:
+    async def exchange_oob_code_for_id_token(self, oob_code: str, email: str) -> str:
         """
         Exchange oobCode for a Firebase ID token using REST API.
 
@@ -126,11 +124,11 @@ class TokenExchangeService:
                     raise AuthenticationError("No ID token in response")
 
                 logger.info(
-                    f"Successfully exchanged oobCode for ID token",
+                    "Successfully exchanged oobCode for ID token",
                     extra={"email": email},
                 )
 
-                return id_token
+                return str(id_token)
 
         except httpx.RequestError as e:
             logger.error(f"Network error during token exchange: {e}")
@@ -165,7 +163,7 @@ class SessionCookieService:
             )
 
             logger.info("Successfully created session cookie")
-            return session_cookie
+            return str(session_cookie)
 
         except firebase_auth.InvalidIdTokenError:
             logger.error("Invalid ID token provided for session cookie")
@@ -179,7 +177,7 @@ class SessionCookieService:
 
     def verify_session_cookie(
         self, session_cookie: str, check_revoked: bool = True
-    ) -> dict:
+    ) -> dict[str, Any]:
         """
         Verify a session cookie and return decoded claims.
 
@@ -202,7 +200,7 @@ class SessionCookieService:
             logger.debug(
                 f"Session cookie verified for user: {decoded_claims.get('uid')}"
             )
-            return decoded_claims
+            return dict(decoded_claims)
 
         except firebase_auth.InvalidSessionCookieError:
             logger.warning("Invalid session cookie")
