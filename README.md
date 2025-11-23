@@ -557,10 +557,11 @@ SESSION_SECRET_KEY=your-secure-random-string
 
 ### OAuth Scopes
 
-The application requests the following scopes:
-- `openid` - OpenID Connect
-- `frame.io.read` - Read access to Frame.io
-- `frame.io.write` - Write access to Frame.io
+The application requests the following Adobe IMS scopes:
+- `openid` - OpenID Connect (required)
+- `offline_access` - Enables refresh tokens for long-lived access
+
+**Note**: Frame.io API access is granted based on the Frame.io API being added to your Adobe Developer Console project, not via explicit OAuth scopes. The default scopes from Adobe IMS are sufficient; actual Frame.io permissions are determined by roles and permissions within Frame.io itself.
 
 ### Authentication Flow
 
