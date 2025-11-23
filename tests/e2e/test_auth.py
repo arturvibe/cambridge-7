@@ -2,9 +2,10 @@
 End-to-end tests for magic link authentication using Firebase emulator.
 
 These tests require the Firebase Auth emulator to be running.
-Run with: FIREBASE_AUTH_EMULATOR_HOST=localhost:9099 pytest tests/test_auth_e2e.py -v
+Run with: FIREBASE_AUTH_EMULATOR_HOST=localhost:9099 pytest tests/e2e/ -v
 """
 
+import logging
 import os
 import re
 from urllib.parse import parse_qs, urlparse
@@ -93,11 +94,20 @@ def extract_email_from_link(magic_link: str) -> str:
     raise ValueError(f"Could not extract email from magic link: {magic_link}")
 
 
+def extract_magic_link_from_logs(caplog: pytest.LogCaptureFixture) -> str:
+    """Extract magic link from captured log output."""
+    magic_link_match = re.search(r"Magic Link: (.+)", caplog.text)
+    assert magic_link_match, f"Magic link not found in logs: {caplog.text}"
+    return magic_link_match.group(1).strip()
+
+
 class TestMagicLinkE2E:
     """End-to-end tests for the complete magic link authentication flow."""
 
-    def test_full_auth_flow(self, e2e_client, test_email, capsys):
+    def test_full_auth_flow(self, e2e_client, test_email, caplog):
         """Test the complete authentication flow from magic link to dashboard."""
+        caplog.set_level(logging.INFO)
+
         # Step 1: Request a magic link
         response = e2e_client.post(
             "/auth/magic/send",
@@ -108,11 +118,8 @@ class TestMagicLinkE2E:
         data = response.json()
         assert data["status"] == "success"
 
-        # Step 2: Extract magic link from stdout (printed by the endpoint)
-        captured = capsys.readouterr()
-        magic_link_match = re.search(r"Magic Link: (.+)", captured.out)
-        assert magic_link_match, f"Magic link not found in output: {captured.out}"
-        magic_link = magic_link_match.group(1).strip()
+        # Step 2: Extract magic link from logs
+        magic_link = extract_magic_link_from_logs(caplog)
 
         # Step 3: Extract oobCode and email from the magic link
         oob_code = extract_oob_code_from_link(magic_link)
@@ -144,8 +151,10 @@ class TestMagicLinkE2E:
         assert dashboard_data["status"] == "success"
         assert dashboard_data["user"]["email"] == test_email
 
-    def test_magic_link_generates_valid_link(self, e2e_client, test_email, capsys):
+    def test_magic_link_generates_valid_link(self, e2e_client, test_email, caplog):
         """Test that magic link generation produces a valid link."""
+        caplog.set_level(logging.INFO)
+
         response = e2e_client.post(
             "/auth/magic/send",
             json={"email": test_email},
@@ -154,11 +163,7 @@ class TestMagicLinkE2E:
         assert response.status_code == 200
 
         # Extract and validate magic link format
-        captured = capsys.readouterr()
-        magic_link_match = re.search(r"Magic Link: (.+)", captured.out)
-        assert magic_link_match
-
-        magic_link = magic_link_match.group(1).strip()
+        magic_link = extract_magic_link_from_logs(caplog)
         parsed = urlparse(magic_link)
 
         # Should be emulator URL
@@ -193,9 +198,11 @@ class TestMagicLinkE2E:
         assert response.status_code == 401
 
     def test_magic_link_includes_email_in_callback_url(
-        self, e2e_client, test_email, capsys
+        self, e2e_client, test_email, caplog
     ):
         """Test that generated magic link includes email for callback."""
+        caplog.set_level(logging.INFO)
+
         response = e2e_client.post(
             "/auth/magic/send",
             json={"email": test_email},
@@ -203,9 +210,7 @@ class TestMagicLinkE2E:
 
         assert response.status_code == 200
 
-        captured = capsys.readouterr()
-        magic_link_match = re.search(r"Magic Link: (.+)", captured.out)
-        magic_link = magic_link_match.group(1).strip()
+        magic_link = extract_magic_link_from_logs(caplog)
 
         # Email should be in the continueUrl
         email = extract_email_from_link(magic_link)
@@ -215,18 +220,21 @@ class TestMagicLinkE2E:
 class TestMagicLinkE2EEdgeCases:
     """Edge case tests for magic link authentication."""
 
-    def test_multiple_magic_links_same_email(self, e2e_client, test_email, capsys):
+    def test_multiple_magic_links_same_email(self, e2e_client, test_email, caplog):
         """Test that multiple magic links can be generated for same email."""
+        caplog.set_level(logging.INFO)
+
         # Generate first link
         response1 = e2e_client.post(
             "/auth/magic/send",
             json={"email": test_email},
         )
         assert response1.status_code == 200
-        captured1 = capsys.readouterr()
-        link1_match = re.search(r"Magic Link: (.+)", captured1.out)
-        link1 = link1_match.group(1).strip()
+        link1 = extract_magic_link_from_logs(caplog)
         oob1 = extract_oob_code_from_link(link1)
+
+        # Clear logs before second request
+        caplog.clear()
 
         # Generate second link
         response2 = e2e_client.post(
@@ -234,9 +242,7 @@ class TestMagicLinkE2EEdgeCases:
             json={"email": test_email},
         )
         assert response2.status_code == 200
-        captured2 = capsys.readouterr()
-        link2_match = re.search(r"Magic Link: (.+)", captured2.out)
-        link2 = link2_match.group(1).strip()
+        link2 = extract_magic_link_from_logs(caplog)
         oob2 = extract_oob_code_from_link(link2)
 
         # Both codes should be different
@@ -250,8 +256,9 @@ class TestMagicLinkE2EEdgeCases:
         )
         assert callback_response.status_code == 302
 
-    def test_email_case_insensitivity(self, e2e_client, capsys):
+    def test_email_case_insensitivity(self, e2e_client, caplog):
         """Test that email matching is handled correctly."""
+        caplog.set_level(logging.INFO)
         email_lower = "testcase@example.com"
 
         # Generate link with lowercase email
@@ -261,9 +268,7 @@ class TestMagicLinkE2EEdgeCases:
         )
         assert response.status_code == 200
 
-        captured = capsys.readouterr()
-        magic_link_match = re.search(r"Magic Link: (.+)", captured.out)
-        magic_link = magic_link_match.group(1).strip()
+        magic_link = extract_magic_link_from_logs(caplog)
         oob_code = extract_oob_code_from_link(magic_link)
 
         # Callback should work with the email from the link

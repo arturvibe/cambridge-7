@@ -114,16 +114,6 @@ async def send_magic_link(
         logger.info("Copy and paste this link in your browser to authenticate")
         logger.info("=" * 80)
 
-        # Also print to stdout for easier access in development
-        print("\n" + "=" * 80)
-        print("MAGIC LINK GENERATED")
-        print("=" * 80)
-        print(f"Email: {request.email}")
-        print(f"Magic Link: {magic_link}")
-        print("=" * 80)
-        print("Copy and paste this link in your browser to authenticate")
-        print("=" * 80 + "\n")
-
         return MagicLinkResponse(
             status="success",
             message="Magic link generated - check server logs",
