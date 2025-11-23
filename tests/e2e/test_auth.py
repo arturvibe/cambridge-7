@@ -6,24 +6,10 @@ Run with: FIREBASE_AUTH_EMULATOR_HOST=localhost:9099 pytest tests/e2e/ -v
 """
 
 import logging
-import os
 import re
 from urllib.parse import parse_qs, urlparse
 
 import pytest
-
-# Check if emulator is configured
-EMULATOR_HOST = os.environ.get("FIREBASE_AUTH_EMULATOR_HOST", "")
-pytestmark = pytest.mark.skipif(
-    not EMULATOR_HOST,
-    reason="FIREBASE_AUTH_EMULATOR_HOST not set - Firebase emulator not available",
-)
-
-# Set required environment variables for emulator testing
-os.environ.setdefault("GOOGLE_CLOUD_PROJECT", "cambridge-local")
-os.environ.setdefault("GCP_PROJECT_ID", "cambridge-local")
-os.environ.setdefault("FIREBASE_WEB_API_KEY", "fake-api-key")
-os.environ.setdefault("BASE_URL", "http://localhost:8080")
 
 
 @pytest.fixture
