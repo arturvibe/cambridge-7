@@ -136,7 +136,6 @@ class FirestoreUserRepository:
         """
         Save OAuth token for a user.
 
-        Creates the user if they don't exist (shouldn't happen in normal flow).
         Tokens are encrypted before storage.
 
         Args:
@@ -146,22 +145,16 @@ class FirestoreUserRepository:
 
         Returns:
             Saved OAuthToken
+
+        Raises:
+            ValueError: If user does not exist
         """
         # Ensure user exists
         user_doc = self._users.document(uid)
         user_snapshot = await user_doc.get()
 
         if not user_snapshot.exists:
-            # This shouldn't happen in normal flow, but handle gracefully
-            logger.warning(f"User {uid} not found, creating placeholder")
-            await user_doc.set(
-                {
-                    "uid": uid,
-                    "email": "unknown@placeholder.com",
-                    "created_at": datetime.now(UTC),
-                    "updated_at": datetime.now(UTC),
-                }
-            )
+            raise ValueError(f"User {uid} not found - cannot save token")
 
         # Create token from OAuth response
         token = OAuthToken.from_oauth_response(provider, token_data)

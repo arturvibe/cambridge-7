@@ -167,13 +167,10 @@ class InMemoryUserRepository(UserRepository):
     async def save_token(
         self, uid: str, provider: str, token_data: dict[str, Any]
     ) -> OAuthToken:
-        # Get or create user
+        # Get user
         user = self._users.get(uid)
         if not user:
-            # This shouldn't happen in normal flow, but handle gracefully
-            logger.warning(f"User {uid} not found, creating placeholder")
-            user = User(uid=uid, email="unknown@placeholder.com")
-            self._users[uid] = user
+            raise ValueError(f"User {uid} not found - cannot save token")
 
         # Create token from OAuth response
         token = OAuthToken.from_oauth_response(provider, token_data)

@@ -95,15 +95,12 @@ class TestInMemoryUserRepository:
         assert result.refresh_token == "test-refresh-token"
 
     @pytest.mark.asyncio
-    async def test_save_token_creates_placeholder_user(self, repository):
-        """Test saving token creates placeholder user if not exists."""
+    async def test_save_token_raises_if_user_not_exists(self, repository):
+        """Test saving token raises error if user doesn't exist."""
         token_data = {"access_token": "test-token"}
 
-        result = await repository.save_token("uid-123", "google", token_data)
-
-        assert result.access_token == "test-token"
-        user = await repository.get_by_uid("uid-123")
-        assert user is not None
+        with pytest.raises(ValueError, match="not found"):
+            await repository.save_token("uid-123", "google", token_data)
 
     @pytest.mark.asyncio
     async def test_save_token_updates_existing_provider(self, repository):
