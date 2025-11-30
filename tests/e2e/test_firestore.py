@@ -14,9 +14,7 @@ import pytest
 TEST_ENCRYPTION_KEY = "3xpo7t61pLEqmOiHEZs4qIvrPjieKmO1Pg5OSdwDRAI="
 
 
-def is_firestore_emulator_available(
-    host: str = "localhost", port: int = 8086
-) -> bool:
+def is_firestore_emulator_available(host: str = "localhost", port: int = 8086) -> bool:
     """Check if Firestore emulator is available."""
     try:
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
