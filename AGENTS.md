@@ -133,8 +133,6 @@ export TOKEN_ENCRYPTION_KEY="3xpo7t61pLEqmOiHEZs4qIvrPjieKmO1Pg5OSdwDRAI="
 pytest tests/e2e/
 ```
 
-**Note:** E2E tests will be automatically skipped if the required emulators are not available. This allows the test suite to run in CI/CD environments without Docker.
-
 **3. Stop the Emulators:**
 
 When you are finished running the tests, stop the emulators.

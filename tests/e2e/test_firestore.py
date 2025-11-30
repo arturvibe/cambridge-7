@@ -2,47 +2,10 @@
 End-to-end tests for Firestore user repository.
 
 These tests require the Firestore emulator to be running.
-Run with: docker-compose up firestore-emulator
+Run with: docker-compose up -d firebase-emulator firestore-emulator
 """
 
-import os
-import socket
-
 import pytest
-
-# Test encryption key for e2e tests
-TEST_ENCRYPTION_KEY = "3xpo7t61pLEqmOiHEZs4qIvrPjieKmO1Pg5OSdwDRAI="
-
-
-def is_firestore_emulator_available(host: str = "localhost", port: int = 8086) -> bool:
-    """Check if Firestore emulator is available."""
-    try:
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.settimeout(1)
-        result = sock.connect_ex((host, port))
-        sock.close()
-        return result == 0
-    except Exception:
-        return False
-
-
-@pytest.fixture(scope="module", autouse=True)
-def setup_firestore_environment():
-    """Set up environment variables for Firestore e2e tests."""
-    os.environ["FIRESTORE_EMULATOR_HOST"] = "localhost:8086"
-    os.environ["GCP_PROJECT_ID"] = "cambridge-local"
-    os.environ["GOOGLE_CLOUD_PROJECT"] = "cambridge-local"
-    os.environ["TOKEN_ENCRYPTION_KEY"] = TEST_ENCRYPTION_KEY
-    yield
-    # Clean up
-    os.environ.pop("FIRESTORE_EMULATOR_HOST", None)
-
-
-@pytest.fixture(autouse=True)
-def skip_without_firestore_emulator():
-    """Skip tests if Firestore emulator is not available."""
-    if not is_firestore_emulator_available():
-        pytest.skip("Firestore emulator not available at localhost:8086")
 
 
 @pytest.fixture
