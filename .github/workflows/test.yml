@@ -58,25 +58,29 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements-dev.txt
 
-      - name: Start Firebase emulator
+      - name: Start emulators
         run: |
-          docker compose up -d firebase-emulator
-          # Wait for emulator to be healthy
+          docker compose up -d firebase-emulator firestore-emulator
+          # Wait for emulators to be healthy
           timeout 60 bash -c 'until docker compose ps firebase-emulator | grep -q "healthy"; do sleep 2; done'
+          timeout 60 bash -c 'until docker compose ps firestore-emulator | grep -q "healthy"; do sleep 2; done'
 
       - name: Run E2E tests
         env:
           FIREBASE_AUTH_EMULATOR_HOST: localhost:9099
+          FIRESTORE_EMULATOR_HOST: localhost:8086
           GOOGLE_CLOUD_PROJECT: cambridge-local
           GCP_PROJECT_ID: cambridge-local
           FIREBASE_WEB_API_KEY: fake-api-key
           BASE_URL: http://localhost:8080
+          SESSION_SECRET_KEY: test-secret
+          TOKEN_ENCRYPTION_KEY: 3xpo7t61pLEqmOiHEZs4qIvrPjieKmO1Pg5OSdwDRAI=
         run: |
           pytest tests/e2e/ -v -s
 
       - name: Show emulator logs on failure
         if: failure()
-        run: docker compose logs firebase-emulator
+        run: docker compose logs firebase-emulator firestore-emulator
 
       - name: Stop services
         if: always()
