@@ -102,38 +102,42 @@ pytest --cov=app --cov-report=term-missing --ignore=tests/e2e/
 
 ### End-to-End (E2E) Tests
 
-E2E tests run against a real Firebase Auth emulator and require Docker. They are designed to be run from your local machine, connecting to the emulator service managed by Docker Compose.
+E2E tests run against real emulators (Firebase Auth and Firestore) and require Docker. They are designed to be run from your local machine, connecting to the emulator services managed by Docker Compose.
 
-**1. Start the Firebase Emulator:**
+**1. Start the Emulators:**
 
-First, start the Firebase emulator in the background.
+Start both Firebase Auth and Firestore emulators in the background.
 
 ```bash
-docker-compose up -d firebase-emulator
+docker-compose up -d firebase-emulator firestore-emulator
 ```
 
-Wait a few moments for it to become healthy. You can check its status with `docker-compose ps`.
+Wait a few moments for them to become healthy. You can check their status with `docker-compose ps`.
 
 **2. Run the E2E Tests:**
 
-Once the emulator is running, run the E2E tests with the required environment variables. These variables tell the tests how to connect to the emulator.
+Once the emulators are running, run the E2E tests with the required environment variables. These variables tell the tests how to connect to the emulators.
 
 ```bash
 source .venv/bin/activate
 
 export FIREBASE_AUTH_EMULATOR_HOST="localhost:9099"
+export FIRESTORE_EMULATOR_HOST="localhost:8086"
 export GOOGLE_CLOUD_PROJECT="cambridge-local"
 export GCP_PROJECT_ID="cambridge-local"
 export FIREBASE_WEB_API_KEY="fake-api-key"
 export BASE_URL="http://localhost:8080"
 export SESSION_SECRET_KEY="test-secret"
+export TOKEN_ENCRYPTION_KEY="3xpo7t61pLEqmOiHEZs4qIvrPjieKmO1Pg5OSdwDRAI="
 
 pytest tests/e2e/
 ```
 
-**3. Stop the Emulator:**
+**Note:** E2E tests will be automatically skipped if the required emulators are not available. This allows the test suite to run in CI/CD environments without Docker.
 
-When you are finished running the tests, stop the emulator.
+**3. Stop the Emulators:**
+
+When you are finished running the tests, stop the emulators.
 
 ```bash
 docker-compose down
